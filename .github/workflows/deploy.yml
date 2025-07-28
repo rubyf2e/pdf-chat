@@ -34,7 +34,24 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: 設置 Pages
+        uses: actions/configure-pages@v4
+
+      - name: 上傳 artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          publish_dir: ./build
+          path: "./build"
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: 部署狀態通知
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ 前端部署成功！"
+            echo "🌐 網站 URL: ${{ steps.deployment.outputs.page_url }}"
+          else
+            echo "❌ 前端部署失敗！"
+          fi
