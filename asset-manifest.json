@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "http://localhost:3001/pdf-chat/static/css/main.7119adce.css",
+    "main.js": "http://localhost:3001/pdf-chat/static/js/main.1ea24dd9.js",
+    "static/js/453.f54ad36b.chunk.js": "http://localhost:3001/pdf-chat/static/js/453.f54ad36b.chunk.js",
+    "index.html": "http://localhost:3001/pdf-chat/index.html",
+    "main.7119adce.css.map": "http://localhost:3001/pdf-chat/static/css/main.7119adce.css.map",
+    "main.1ea24dd9.js.map": "http://localhost:3001/pdf-chat/static/js/main.1ea24dd9.js.map",
+    "453.f54ad36b.chunk.js.map": "http://localhost:3001/pdf-chat/static/js/453.f54ad36b.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.7119adce.css",
+    "static/js/main.1ea24dd9.js"
+  ]
+}

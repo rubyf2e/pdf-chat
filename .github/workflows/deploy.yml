@@ -1,0 +1,40 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Clear npm cache
+        run: npm cache clean --force
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: 創建生產環境檔案
+        run: |
+          cat > .env.production << EOF
+          REACT_APP_TITLE=${{ vars.REACT_APP_TITLE || 'PDF 小幫手' }}
+          REACT_APP_API_BASE_URL=${{ vars.REACT_APP_API_BASE_URL || 'PDF 小幫手' }}
+          PUBLIC_URL=${{ vars.PUBLIC_URL || 'https://rubyf2e.github.io/movie-helper-site' }}
+          EOF
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          publish_dir: ./build
