@@ -1,0 +1,45 @@
+// ============================================================================
+// ACCESSIBILITY
+// ============================================================================
+
+// Additional accessibility improvements
+*:focus {
+  outline: 2px solid $color-primary;
+  outline-offset: 2px;
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  button {
+    border: 2px solid currentColor;
+  }
+}
+
+// Reduced transparency for better readability
+@media (prefers-reduced-transparency: reduce) {
+  .modal-backdrop {
+    background: $color-neutral-black;
+  }
+
+  .ai-bot-chat {
+    background: $color-bg-card;
+    border: 2px solid $color-border-primary;
+  }
+}
+
+// Skip links for keyboard navigation
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: $color-primary;
+  color: $color-neutral-black;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 9999;
+  border-radius: 4px;
+
+  &:focus {
+    top: 6px;
+  }
+}

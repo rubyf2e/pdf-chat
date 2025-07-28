@@ -1,0 +1,168 @@
+// ============================================================================
+// THEME COLOR SYSTEM
+// ============================================================================
+
+// Primary Brand Colors
+$color-primary: #3b82f6; // 主要品牌色 - 藍色
+$color-primary-hover: #2563eb; // 主要色懸停狀態
+$color-primary-light: #60a5fa; // 主要色淺色變化
+$color-primary-glow: rgba(59, 130, 246, 0.5); // 主要色光暈效果
+$color-primary-shadow: rgba(59, 130, 246, 0.1); // 主要色陰影
+
+// Secondary Colors
+$color-secondary-dark: #1e293b; // 次要深色
+$color-secondary-accent: #f59e0b; // 次要強調色 - 橙色
+
+// Neutral Colors
+$color-neutral-white: #ffffff; // 純白色
+$color-neutral-black: #000000; // 純黑色
+$color-neutral-gray-light: #e5e7eb; // 淺灰色
+$color-neutral-gray-medium: #64748b; // 中灰色
+$color-neutral-gray-dark: #334155; // 深灰色
+
+// Background Colors
+$color-bg-primary: #0f172a; // 主要背景色 - 深藍黑
+$color-bg-secondary: #1e293b; // 次要背景色 - 深藍灰
+$color-bg-tertiary: #1e293b; // 第三背景色 - 深藍灰
+$color-bg-quaternary: #334155; // 第四背景色 - 中灰
+$color-bg-gradient-start: #0f172a; // 漸變起始色
+$color-bg-gradient-end: #1e293b; // 漸變結束色
+
+// Component Background Colors
+$color-bg-card: #1e293b; // 卡片背景色
+$color-bg-card-dark: #0f172a; // 深色卡片背景
+$color-bg-header: #0f172a; // 頁首背景色
+$color-bg-footer: #0f172a; // 頁尾背景色
+$color-bg-search: #334155; // 搜尋框背景色
+
+// Text Colors
+$color-text-primary: #f1f5f9; // 主要文字色
+$color-text-secondary: #cbd5e1; // 次要文字色
+$color-text-muted: #94a3b8; // 弱化文字色
+$color-text-placeholder: #9ca3af; // 佔位符文字色
+
+// Border Colors
+$color-border-primary: $color-primary; // 主要邊框色
+$color-border-secondary: #334155; // 次要邊框色
+$color-border-light: #e5e7eb; // 淺色邊框
+$color-border-transparent: rgba(255, 255, 255, 0.2); // 透明邊框
+
+// Status Colors
+$color-status-success: #4ade80; // 成功狀態色
+$color-status-warning: #f59e0b; // 警告狀態色 - 橙色
+$color-status-error: #ef4444; // 錯誤狀態色
+$color-status-info: #3b82f6; // 資訊狀態色 - 藍色
+
+// Special Colors
+$color-accent-logo: #3b82f6; // Logo 強調色 - 藍色
+$color-accent-star: #f59e0b; // 星級評分色 - 橙色
+$color-accent-star-inactive: #64748b; // 未激活星級色
+$color-accent-movie-theme: #f59e0b; // PDF主題色 - 橙色
+
+// Transparent Colors
+$color-overlay-modal: rgba(0, 0, 0, 0.8); // 模態框遮罩
+$color-overlay-ai-bot: rgba(0, 0, 0, 0.3); // AI機器人陰影
+
+// Shadow Colors
+$color-shadow-modal: rgba(0, 0, 0, 0.5); // 模態框陰影
+$color-shadow-card-hover: rgba(0, 0, 0, 0.3); // 卡片懸停陰影
+$color-shadow-primary: rgba(59, 130, 246, 0.1); // 主要陰影色
+
+// ============================================================================
+// LAYOUT & SPACING
+// ============================================================================
+
+// Layout Dimensions
+$layout-header-height: 56px; // 頁首高度（與 Header.js 中的設定保持一致）
+
+// Spacing Scale
+$spacing-xs: 0.25rem; // 4px
+$spacing-sm: 0.5rem; // 8px
+$spacing-md: 1rem; // 16px
+$spacing-lg: 1.5rem; // 24px
+$spacing-xl: 2rem; // 32px
+$spacing-2xl: 3rem; // 48px
+$spacing-3xl: 4rem; // 64px
+
+// Border Radius Scale
+$radius-none: 0; // 無圓角
+$radius-sm: 4px; // 小圓角
+$radius-md: 8px; // 中圓角
+$radius-lg: 16px; // 大圓角
+$radius-xl: 2rem; // 特大圓角
+$radius-full: 999px; // 全圓角
+
+// ============================================================================
+// TYPOGRAPHY
+// ============================================================================
+
+// Font Family
+$font-family-primary: "Segoe UI", sans-serif; // 主要字體
+$font-family-secondary: system-ui, sans-serif; // 次要字體
+$font-family-mono: "Courier New", monospace; // 等寬字體
+
+// Font Sizes
+$font-size-xs: 0.75rem; // 12px
+$font-size-sm: 0.875rem; // 14px
+$font-size-base: 1rem; // 16px
+$font-size-lg: 1.125rem; // 18px
+$font-size-xl: 1.25rem; // 20px
+$font-size-2xl: 1.5rem; // 24px
+$font-size-3xl: 1.875rem; // 30px
+$font-size-4xl: 2.25rem; // 36px
+
+// Font Weights
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+$font-weight-extrabold: 800;
+
+// Line Heights
+$line-height-tight: 1.25;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.75;
+
+// ============================================================================
+// EFFECTS & TRANSITIONS
+// ============================================================================
+
+// Shadows
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+  0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+  0 4px 6px -2px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+  0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+// Text Shadows
+$text-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+$text-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2);
+$text-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.3);
+
+// Transitions
+$transition-duration: 0.3s;
+$transition-timing: ease;
+$transition-base: all 0.3s ease;
+$transition-colors: color 0.3s ease, background-color 0.3s ease,
+  border-color 0.3s ease;
+$transition-transform: transform 0.3s ease;
+
+// ============================================================================
+// Z-INDEX SCALE
+// ============================================================================
+
+$z-index-dropdown: 1000;
+$z-index-sticky: 1020;
+$z-index-fixed: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;
+
+// Letter Spacing
+$letter-spacing-tight: -0.025em; // 緊密字間距
+$letter-spacing-normal: 0; // 正常字間距
+$letter-spacing-wide: 0.025em; // 寬鬆字間距

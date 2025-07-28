@@ -1,0 +1,250 @@
+// ============================================================================
+// MIXINS
+// ============================================================================
+
+// Flexbox Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+// Spacing Mixins
+@mixin spacing($property, $size) {
+  #{$property}: $size;
+}
+
+@mixin margin($top: null, $right: null, $bottom: null, $left: null) {
+  @if $top {
+    margin-top: $top;
+  }
+  @if $right {
+    margin-right: $right;
+  }
+  @if $bottom {
+    margin-bottom: $bottom;
+  }
+  @if $left {
+    margin-left: $left;
+  }
+}
+
+@mixin padding($top: null, $right: null, $bottom: null, $left: null) {
+  @if $top {
+    padding-top: $top;
+  }
+  @if $right {
+    padding-right: $right;
+  }
+  @if $bottom {
+    padding-bottom: $bottom;
+  }
+  @if $left {
+    padding-left: $left;
+  }
+}
+
+// Typography Mixins
+@mixin text-style(
+  $size: $font-size-base,
+  $weight: $font-weight-normal,
+  $color: $color-text-primary,
+  $line-height: 1.5
+) {
+  font-size: $size;
+  font-weight: $weight;
+  color: $color;
+  line-height: $line-height;
+}
+
+@mixin heading-style($level: 1) {
+  @if $level == 1 {
+    font-size: $font-size-2xl;
+    font-weight: $font-weight-bold;
+    line-height: 1.2;
+  } @else if $level == 2 {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-semibold;
+    line-height: 1.3;
+  } @else if $level == 3 {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-medium;
+    line-height: 1.4;
+  } @else {
+    font-size: $font-size-base;
+    font-weight: $font-weight-normal;
+    line-height: 1.5;
+  }
+}
+
+// Border Mixins
+@mixin border-radius($radius: $radius-md) {
+  border-radius: $radius;
+}
+
+@mixin border($width: 1px, $style: solid, $color: $color-border-primary) {
+  border: $width $style $color;
+}
+
+// Shadow Mixins
+@mixin box-shadow($shadow: $shadow-sm) {
+  box-shadow: $shadow;
+}
+
+@mixin text-shadow($shadow: $text-shadow-sm) {
+  text-shadow: $shadow;
+}
+
+// Transition Mixins
+@mixin transition($property: all, $duration: $transition-duration, $timing: $transition-timing) {
+  transition: $property $duration $timing;
+}
+
+@mixin hover-effect($scale: 1.05, $shadow: $shadow-lg) {
+  transition: $transition-base;
+  
+  &:hover {
+    transform: scale($scale);
+    box-shadow: $shadow;
+  }
+}
+
+// Background Mixins
+@mixin gradient-background(
+  $start: $color-bg-gradient-start,
+  $end: $color-bg-gradient-end
+) {
+  background: linear-gradient(180deg, $start 0%, $end 100%);
+}
+
+// Button Mixins
+@mixin button-primary {
+  background: $color-primary;
+  color: $color-neutral-white;
+  border: none;
+  font-weight: $font-weight-bold;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-base;
+  box-shadow: $shadow-sm;
+
+  &:hover {
+    background: $color-primary-hover;
+    color: $color-neutral-white;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.18);
+  }
+}
+
+@mixin button-secondary {
+  background: $color-bg-card-dark;
+  color: $color-neutral-white;
+  border: none;
+  font-weight: $font-weight-bold;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-base;
+  box-shadow: $shadow-sm;
+
+  &:hover,
+  &:focus,
+  &:active {
+    background: $color-secondary-accent;
+    color: $color-neutral-white;
+    box-shadow: 0 4px 24px rgba(245, 158, 11, 0.2);
+  }
+}
+
+@mixin button-ghost {
+  background: transparent;
+  color: $color-text-primary;
+  border: 1px solid $color-border-primary;
+  font-weight: $font-weight-medium;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-base;
+
+  &:hover {
+    background: $color-bg-card-dark;
+    color: $color-text-primary;
+    border-color: $color-primary;
+  }
+}
+
+// Input Mixins
+@mixin input-base {
+  background: $color-bg-card-dark;
+  border: 1px solid $color-border-primary;
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-md;
+  color: $color-text-primary;
+  font-size: $font-size-base;
+  transition: $transition-base;
+
+  &:focus {
+    outline: none;
+    border-color: $color-primary;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+
+  &::placeholder {
+    color: $color-text-secondary;
+  }
+}
+
+// Card Mixins
+@mixin card-base {
+  background: $color-bg-card-dark;
+  border: 1px solid $color-border-primary;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-sm;
+  transition: $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+  }
+}
+
+// Animation Mixins
+@mixin animation-fade-in-up($delay: 0s) {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease-out $delay forwards;
+}
+
+// Utility Mixins
+@mixin reset-focus-styles {
+  &:focus,
+  &:active {
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+  }
+}
+
+@mixin no-select {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+

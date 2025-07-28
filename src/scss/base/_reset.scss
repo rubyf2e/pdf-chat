@@ -1,0 +1,74 @@
+// ============================================================================
+// BASE STYLES & RESET
+// ============================================================================
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+// Prevent horizontal scrolling
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+// Ensure all containers respect viewport width
+*,
+*::before,
+*::after {
+  max-width: 100%;
+  --tw-gradient-from-position: ;
+  --tw-gradient-via-position: ;
+  --tw-gradient-to-position: ;
+}
+
+// Remove default focus and active states
+img,
+button,
+a,
+input,
+select,
+textarea {
+  @include reset-focus-styles;
+}
+
+// Remove blue highlight on touch devices and default focus styles
+* {
+  @include no-select;
+}
+
+// Allow text selection for specific elements
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: auto;
+  -khtml-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto;
+}
+
+// Remove default focus/active blue background for interactive elements
+img,
+button,
+a,
+input,
+select,
+textarea,
+.tags span {
+  outline: none;
+
+  &:focus,
+  &:active {
+    outline: none;
+    box-shadow: none !important;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+  }
+}
