@@ -1,0 +1,6 @@
+llama-index
+llama-index-llms-gemini
+llama-index-vector-stores-qdrant
+llama-index-embeddings-google-genai
+qdrant-client
+configparser
