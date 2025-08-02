@@ -7,6 +7,7 @@ from llama_index.core.postprocessor import LongContextReorder
 
 import qdrant_client
 import configparser
+import os
 
 
 def load_config():
@@ -40,18 +41,36 @@ def setup_models(config):
     return llm, embed_model
 
 
-def load_documents(input_dir):
+def load_documents(input_dir, upload_folder=None):
     """載入 PDF 文件"""
-    documents = SimpleDirectoryReader(
-        input_dir=input_dir,
-        recursive=True,
-        required_exts=[".pdf"],
-        exclude=["*.tmp"],
-        encoding='utf-8'
-    ).load_data()
+    all_documents = []
     
-    print(f"成功載入 {len(documents)} 個文件")
-    return documents
+    # 載入配置文件中指定的文件
+    if input_dir and os.path.exists(input_dir):
+        config_documents = SimpleDirectoryReader(
+            input_dir=input_dir,
+            recursive=True,
+            required_exts=[".pdf"],
+            exclude=["*.tmp"],
+            encoding='utf-8'
+        ).load_data()
+        all_documents.extend(config_documents)
+        print(f"從配置目錄載入 {len(config_documents)} 個文件")
+    
+    # 載入上傳的文件
+    if upload_folder and os.path.exists(upload_folder):
+        upload_documents = SimpleDirectoryReader(
+            input_dir=upload_folder,
+            recursive=True,
+            required_exts=[".pdf"],
+            exclude=["*.tmp"],
+            encoding='utf-8'
+        ).load_data()
+        all_documents.extend(upload_documents)
+        print(f"從上傳目錄載入 {len(upload_documents)} 個文件")
+    
+    print(f"總共載入 {len(all_documents)} 個文件")
+    return all_documents
 
 
 def setup_vector_store(qdrant_url, qdrant_key, collection_name="operation_guide"):
@@ -114,12 +133,32 @@ def create_query_engine(index, config):
 
 def query_pdf(query_engine, question: str):
     """執行 PDF 查詢"""
-    response = query_engine.query(question)
-    response.print_response_stream()
-    return response
+    try:
+        response = query_engine.query(question)
+        # 返回響應對象而不是直接打印
+        return response
+    except Exception as e:
+        print(f"查詢錯誤: {e}")
+        raise e
 
 
-def initialize_pdf_service():
+def process_uploaded_pdf(pdf_path):
+    """處理單個上傳的PDF文件"""
+    try:
+        # 使用SimpleDirectoryReader讀取單個文件
+        documents = SimpleDirectoryReader(
+            input_files=[pdf_path],
+            encoding='utf-8'
+        ).load_data()
+        
+        print(f"成功處理上傳的PDF: {pdf_path}, 文件數量: {len(documents)}")
+        return documents
+    except Exception as e:
+        print(f"處理上傳PDF錯誤: {e}")
+        raise e
+
+
+def initialize_pdf_service(upload_folder=None):
     """初始化完整的 PDF 服務"""
     # 1. 載入設定
     config = load_config()
@@ -127,8 +166,13 @@ def initialize_pdf_service():
     # 2. 設定模型
     llm, embed_model = setup_models(config)
     
-    # 3. 載入文件
-    documents = load_documents(config['input_dir'])
+    # 3. 載入文件（包括上傳的文件）
+    documents = load_documents(config['input_dir'], upload_folder)
+    
+    # 如果沒有文件，返回None
+    if not documents:
+        print("警告: 沒有找到任何PDF文件")
+        return None
     
     # 4. 設定向量資料庫
     vector_store, storage_context = setup_vector_store(

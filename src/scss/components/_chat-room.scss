@@ -538,6 +538,41 @@
       }
     }
 
+    .upload-button {
+      background: linear-gradient(135deg, #17a2b8, #138496);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: $color-neutral-white;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+
+      &:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+      }
+
+      &:active:not(:disabled) {
+        transform: scale(0.95);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #6c757d;
+      }
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
     .send-button {
       background: linear-gradient(135deg, $color-primary, $color-primary-light);
       border: none;
@@ -570,6 +605,10 @@
         width: 16px;
         height: 16px;
       }
+    }
+
+    .hidden-file-input {
+      display: none;
     }
   }
 

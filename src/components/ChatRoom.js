@@ -10,7 +10,6 @@ const ChatRoom = () => {
                 <button class="chat-option">🔍 搜尋PDF資訊</button> 
                 <button class="chat-option">📝 總結PDF重點</button>
                 <button class="chat-option">💡 解答PDF問題</button>
-                <button class="chat-option">📚 推薦相關PDF</button> 
                 </div></div>請選擇您想使用的 AI 模型，然後開始討論您的PDF吧！`,
       sender: "assistant",
       timestamp: new Date(),
@@ -19,29 +18,31 @@ const ChatRoom = () => {
 
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("gpt-4");
+  const [selectedModel, setSelectedModel] = useState("gemini");
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const aiModels = [
     {
-      id: "gpt-4",
-      name: "GPT-4",
-      description: "最強大的模型，適合深度PDF分析",
+      id: "gemini",
+      name: "Gemini",
+      description: "",
+      icon: "✨",
+    },
+    {
+      id: "azure",
+      name: "Azure",
+      description: "",
       icon: "🧠",
     },
     {
-      id: "gpt-3.5-turbo",
-      name: "GPT-3.5 Turbo",
-      description: "快速回應，適合一般PDF討論",
+      id: "ollama",
+      name: "Ollama",
+      description: "",
       icon: "⚡",
-    },
-    {
-      id: "claude-3",
-      name: "Claude 3",
-      description: "創意豐富，適合PDF內容創作",
-      icon: "🎨",
     },
   ];
 
@@ -79,6 +80,7 @@ const ChatRoom = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentMessage = newMessage.trim();
     setNewMessage("");
     setIsTyping(true);
 
@@ -87,34 +89,57 @@ const ChatRoom = () => {
       scrollToBottom();
     }, 100);
 
-    // 模擬 AI 回覆（實際應用中這裡會調用 ChatGPT API）
-    setTimeout(() => {
-      const aiReplies = [
-        `我使用 ${selectedModel.toUpperCase()} 模型來分析您的PDF。這個PDF的內容確實很豐富！您想了解更多關於哪個部分的信息嗎？`,
-        `根據 ${selectedModel.toUpperCase()} 的分析，這個PDF在結構和內容方面都很出色。您對哪個章節特別感興趣？`,
-        `作為您的AI PDF 小幫手，我推薦您也可以看看相關主題的其他PDF。需要我為您推薦一些嗎？`,
-        `這個問題很有趣！讓我用 ${selectedModel.toUpperCase()} 的視角來分析一下這個PDF的內容。`,
-        `我理解您對這個PDF的疑問。從 ${selectedModel.toUpperCase()} 的角度來看，這個觀點很有見地。`,
-        `這個PDF的內容組織確實很棒！您想了解更多關於PDF結構的信息嗎？`,
-        `根據 ${selectedModel.toUpperCase()} 的資料庫，這個主題的其他PDF也很值得參考。`,
-        `這個PDF的寫作風格很獨特。您想了解如何更好地理解這類PDF嗎？`,
-        `從 ${selectedModel.toUpperCase()} 的角度分析，這個PDF的結論確實很有啟發性。`,
-        `我推薦您也可以看看這個領域的其他經典PDF。需要我列出一些嗎？`,
-      ];
+    try {
+      // 調用後端 API
+      const apiBaseUrl =
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5001";
+      const response = await fetch(`${apiBaseUrl}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: currentMessage,
+          model: selectedModel,
+        }),
+      });
 
-      const randomReply =
-        aiReplies[Math.floor(Math.random() * aiReplies.length)];
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       const aiMessage = {
         id: Date.now() + 1,
-        text: randomReply,
+        text: data.response || "抱歉，我無法處理您的請求。",
         sender: "assistant",
         timestamp: new Date(),
         model: selectedModel,
       };
+
       setMessages((prev) => [...prev, aiMessage]);
       setIsTyping(false);
-    }, 1000 + Math.random() * 2000);
+    } catch (error) {
+      console.error("發送訊息錯誤:", error);
+
+      // 顯示錯誤訊息
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: `抱歉，發生了錯誤：${error.message}。請檢查網路連線或稍後再試。`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: selectedModel,
+        isError: true,
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+      setIsTyping(false);
+    }
   };
 
   const formatTime = (timestamp) => {
@@ -137,6 +162,109 @@ const ChatRoom = () => {
     return aiModels.find((model) => model.id === selectedModel);
   };
 
+  const handleFileUpload = async (file) => {
+    // 檢查文件類型
+    if (!file.type.includes("pdf")) {
+      const errorMessage = {
+        id: Date.now(),
+        text: `❌ 只支援 PDF 文件格式`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: "system",
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
+    // 檢查文件大小 (16MB限制)
+    const maxSize = 16 * 1024 * 1024;
+    if (file.size > maxSize) {
+      const errorMessage = {
+        id: Date.now(),
+        text: `❌ 文件大小不能超過 16MB`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: "system",
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
+    setIsUploading(true);
+
+    // 添加上傳中的消息
+    const uploadingMessage = {
+      id: Date.now(),
+      text: `📤 正在上傳 "${file.name}"...`,
+      sender: "assistant",
+      timestamp: new Date(),
+      model: "system",
+    };
+    setMessages((prev) => [...prev, uploadingMessage]);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const apiBaseUrl =
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5001";
+      const response = await fetch(`${apiBaseUrl}/api/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const successMessage = {
+          id: Date.now() + 1,
+          text: `✅ PDF文件 "${file.name}" 上傳成功！現在您可以開始與AI討論這個PDF的內容了。`,
+          sender: "assistant",
+          timestamp: new Date(),
+          model: "system",
+        };
+        setMessages((prev) => [...prev, successMessage]);
+      } else {
+        const errorData = await response.json();
+        const errorMessage = {
+          id: Date.now() + 1,
+          text: `❌ 文件上傳失敗：${errorData.error}`,
+          sender: "assistant",
+          timestamp: new Date(),
+          model: "system",
+          isError: true,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error("上傳錯誤:", error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: `❌ 上傳失敗，請重試`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: "system",
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUploadButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileUpload(file);
+      // 清空文件輸入
+      e.target.value = "";
+    }
+  };
+
   return (
     <section id="chat" className="chat-room-section">
       <div className="chat-room-container">
@@ -150,7 +278,9 @@ const ChatRoom = () => {
                 </span>
                 AI PDF 小幫手
               </h2>
-              <p className="chat-room-subtitle">與 AI 討論PDF，獲得專業見解與分析</p>
+              <p className="chat-room-subtitle">
+                與 AI 討論PDF，獲得專業見解與分析
+              </p>
             </div>
           </div>
 
@@ -209,7 +339,9 @@ const ChatRoom = () => {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`chat-message ${message.sender}-message`}
+                className={`chat-message ${message.sender}-message ${
+                  message.isError ? "error-message" : ""
+                }`}
               >
                 <div className="message-content">
                   <div className="message-header">
@@ -274,15 +406,44 @@ const ChatRoom = () => {
           {/* 輸入區域 */}
           <form className="chat-room-input" onSubmit={handleSendMessage}>
             <div className="input-container">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleFileSelect}
+                style={{ display: "none" }}
+              />
               <textarea
                 ref={inputRef}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={`使用 ${getCurrentModel().name} 與 AI 討論您的PDF...`}
+                placeholder={`使用 ${
+                  getCurrentModel().name
+                } 與 AI 討論您的PDF...`}
                 rows="1"
                 className="message-input"
               />
+              <button
+                type="button"
+                onClick={handleUploadButtonClick}
+                className="upload-button"
+                disabled={isUploading}
+                title="上傳PDF文件"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49" />
+                </svg>
+              </button>
               <button
                 type="submit"
                 disabled={!newMessage.trim()}
