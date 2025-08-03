@@ -228,8 +228,25 @@ def chat():
         # 提取回應文字
         response_text = str(response.response) if hasattr(response, 'response') else str(response)
         
+        # 提取來源資訊
+        sources = []
+        if hasattr(response, 'source_info') and response.source_info:
+            sources = response.source_info
+            
+        # 如果有來源資訊，在回應中添加
+        if sources:
+            source_text = "\n\n📖 參考來源："
+            for i, source in enumerate(sources[:3], 1):  # 只顯示前3個來源
+                file_name = source.get('file_name', '未知文件')
+                page = source.get('page', '未知頁數')
+                score = source.get('score', 0.0)
+                source_text += f"\n{i}. {file_name} - 第 {page} 頁 (相關度: {score:.2f})"
+            
+            response_text += source_text
+        
         return jsonify({
             'response': response_text,
+            'sources': sources,
             'timestamp': time.time(),
             'status': 'success'
         })
@@ -275,6 +292,18 @@ def chat_stream():
                     # 如果不支援流式，則一次性返回
                     response_text = str(response.response) if hasattr(response, 'response') else str(response)
                     yield f"data: {json.dumps({'chunk': response_text, 'status': 'complete'})}\n\n"
+                
+                # 發送來源資訊
+                if hasattr(response, 'source_info') and response.source_info:
+                    sources = response.source_info[:3]  # 只顯示前3個來源
+                    source_text = "\n\n📖 參考來源："
+                    for i, source in enumerate(sources, 1):
+                        file_name = source.get('file_name', '未知文件')
+                        page = source.get('page', '未知頁數')
+                        score = source.get('score', 0.0)
+                        source_text += f"\n{i}. {file_name} - 第 {page} 頁 (相關度: {score:.2f})"
+                    
+                    yield f"data: {json.dumps({'chunk': source_text, 'sources': sources, 'status': 'sources'})}\n\n"
                 
                 yield f"data: {json.dumps({'status': 'complete'})}\n\n"
                 

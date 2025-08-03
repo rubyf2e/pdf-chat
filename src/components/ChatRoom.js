@@ -120,6 +120,7 @@ const ChatRoom = () => {
         sender: "assistant",
         timestamp: new Date(),
         model: selectedModel,
+        sources: data.sources || [], // 添加來源資訊
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -369,6 +370,27 @@ const ChatRoom = () => {
                     className="message-text"
                     dangerouslySetInnerHTML={{ __html: message.text }}
                   />
+
+                  {/* 顯示來源資訊 */}
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="message-sources">
+                      <div className="sources-header">📖 參考來源：</div>
+                      <div className="sources-list">
+                        {message.sources.slice(0, 3).map((source, index) => (
+                          <div key={index} className="source-item">
+                            <span className="source-number">{index + 1}.</span>
+                            <span className="source-info">
+                              {source.file_name} - 第 {source.page} 頁
+                            </span>
+                            <span className="source-score">
+                              (相關度: {(source.score || 0).toFixed(2)})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="message-time">
                     {formatTime(message.timestamp)}
                   </div>

@@ -424,6 +424,52 @@
       white-space: pre-line;
     }
 
+    .message-sources {
+      background: rgba(59, 130, 246, 0.05);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      border-radius: $radius-sm;
+      padding: $spacing-sm;
+      margin: $spacing-sm 0;
+      font-size: 0.85rem;
+
+      .sources-header {
+        font-weight: 600;
+        color: $color-primary;
+        margin-bottom: $spacing-xs;
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+      }
+
+      .sources-list {
+        .source-item {
+          display: flex;
+          align-items: center;
+          gap: $spacing-xs;
+          margin: $spacing-xs 0;
+          padding: $spacing-xs;
+          background: rgba(255, 255, 255, 0.5);
+
+          .source-number {
+            font-weight: 600;
+            color: $color-primary;
+            min-width: 20px;
+          }
+
+          .source-info {
+            flex: 1;
+            color: $color-text-primary;
+          }
+
+          .source-score {
+            font-size: 0.75rem;
+            color: $color-text-muted;
+            font-style: italic;
+          }
+        }
+      }
+    }
+
     .message-time {
       font-size: 0.7rem;
       opacity: 0.7;

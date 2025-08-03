@@ -135,6 +135,40 @@ def query_pdf(query_engine, question: str):
     """執行 PDF 查詢"""
     try:
         response = query_engine.query(question)
+        
+        # 提取來源資訊和頁數
+        source_info = []
+        if hasattr(response, 'source_nodes') and response.source_nodes:
+            for node in response.source_nodes:
+                page_info = {}
+                
+                # 提取檔案名稱
+                if hasattr(node, 'metadata') and 'file_name' in node.metadata:
+                    page_info['file_name'] = node.metadata['file_name']
+                elif hasattr(node, 'node') and hasattr(node.node, 'metadata') and 'file_name' in node.node.metadata:
+                    page_info['file_name'] = node.node.metadata['file_name']
+                else:
+                    page_info['file_name'] = "未知文件"
+                
+                # 提取頁數
+                if hasattr(node, 'metadata') and 'page_label' in node.metadata:
+                    page_info['page'] = node.metadata['page_label']
+                elif hasattr(node, 'node') and hasattr(node.node, 'metadata') and 'page_label' in node.node.metadata:
+                    page_info['page'] = node.node.metadata['page_label']
+                else:
+                    page_info['page'] = "未知頁數"
+                
+                # 提取相似度分數
+                if hasattr(node, 'score'):
+                    page_info['score'] = round(node.score, 3)
+                else:
+                    page_info['score'] = 0.0
+                
+                source_info.append(page_info)
+        
+        # 將來源資訊添加到回應中
+        response.source_info = source_info
+        
         # 返回響應對象而不是直接打印
         return response
     except Exception as e:
