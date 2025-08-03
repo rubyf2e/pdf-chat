@@ -264,6 +264,49 @@
   }
 }
 
+// 清理資料按鈕
+.clear-data-button {
+  position: absolute;
+  top: $spacing-md;
+  right: calc($spacing-md + 200px); // 模型選擇器寬度 + 間距
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: $radius-lg;
+  padding: $spacing-sm;
+  color: $color-neutral-white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+
+  &:hover {
+    background: rgba(220, 38, 38, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  @media (max-width: 768px) {
+    right: calc($spacing-md + 50px); // 調整手機版位置
+    padding: $spacing-xs;
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
 // 聊天內容區域
 .chat-room-content {
   flex: 1;

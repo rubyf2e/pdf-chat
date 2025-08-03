@@ -7,7 +7,7 @@ import shutil
 from threading import Lock
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf
+from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf, clear_all_data
 import logging
 
 # 設定日誌
@@ -82,22 +82,48 @@ def upload_file():
                 'status': 'error'
             }), 400
         
-        # 保存文件
-        filename = secure_filename(file.filename)
-        timestamp = str(int(time.time()))
-        filename = f"{timestamp}_{filename}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        
-        logger.info(f"文件上傳成功: {filepath}")
-        
         # 處理上傳的PDF
         try:
             global query_engine, uploaded_files
             
-            # 重新初始化PDF服務以包含新文件
+            # 先清空現有資料
             with initialization_lock:
-                # 添加到上傳文件列表
+                logger.info("清空現有上傳文件和資料集...")
+                
+                # 載入配置以獲取 Qdrant 資訊
+                import configparser
+                config_ini = configparser.ConfigParser()
+                config_ini.read('config.ini')
+                
+                # 使用新的清理函數
+                clear_success = clear_all_data(
+                    upload_folder=UPLOAD_FOLDER,
+                    qdrant_url=config_ini['QDRANT']['URL'],
+                    qdrant_key=config_ini['QDRANT']['API_KEY']
+                )
+                
+                if not clear_success:
+                    logger.warning("資料清空過程中發生警告，但繼續處理新文件")
+                
+                # 重置應用程式狀態
+                uploaded_files.clear()
+                query_engine = None
+                
+                logger.info("資料清空完成")
+                
+                # 現在保存新文件
+                filename = secure_filename(file.filename)
+                timestamp = str(int(time.time()))
+                filename = f"{timestamp}_{filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                
+                # 確保上傳目錄存在
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                file.save(filepath)
+                
+                logger.info(f"新文件保存成功: {filepath}")
+                
+                # 添加新文件到列表
                 uploaded_files.append({
                     'filename': filename,
                     'original_name': file.filename,
@@ -105,7 +131,7 @@ def upload_file():
                     'upload_time': time.time()
                 })
                 
-                # 重新初始化服務
+                # 重新初始化服務（只包含新上傳的文件）
                 logger.info("重新初始化 PDF 服務以包含新上傳的文件...")
                 query_engine = initialize_pdf_service(upload_folder=UPLOAD_FOLDER)
                 logger.info("PDF 服務重新初始化完成")
@@ -189,6 +215,53 @@ def delete_file(filename):
         logger.error(f"刪除文件錯誤: {e}")
         return jsonify({
             'error': f'刪除文件失敗: {str(e)}',
+            'status': 'error'
+        }), 500
+
+@app.route('/api/clear', methods=['POST'])
+def clear_all():
+    """清空所有上傳的文件和資料集"""
+    try:
+        global query_engine, uploaded_files
+        
+        with initialization_lock:
+            logger.info("手動清空所有資料...")
+            
+            # 載入配置
+            import configparser
+            config_ini = configparser.ConfigParser()
+            config_ini.read('config.ini')
+            
+            # 清空所有資料
+            clear_success = clear_all_data(
+                upload_folder=UPLOAD_FOLDER,
+                qdrant_url=config_ini['QDRANT']['URL'],
+                qdrant_key=config_ini['QDRANT']['API_KEY']
+            )
+            
+            # 重置應用程式狀態
+            uploaded_files.clear()
+            query_engine = None
+            
+            if clear_success:
+                logger.info("所有資料清空成功")
+                return jsonify({
+                    'message': '所有資料清空成功',
+                    'status': 'success',
+                    'timestamp': time.time()
+                })
+            else:
+                logger.warning("資料清空過程中發生警告")
+                return jsonify({
+                    'message': '資料清空完成，但過程中發生一些警告',
+                    'status': 'warning',
+                    'timestamp': time.time()
+                })
+        
+    except Exception as e:
+        logger.error(f"清空資料錯誤: {e}")
+        return jsonify({
+            'error': f'清空資料時發生錯誤: {str(e)}',
             'status': 'error'
         }), 500
 

@@ -47,27 +47,43 @@ def load_documents(input_dir, upload_folder=None):
     
     # 載入配置文件中指定的文件
     if input_dir and os.path.exists(input_dir):
-        config_documents = SimpleDirectoryReader(
-            input_dir=input_dir,
-            recursive=True,
-            required_exts=[".pdf"],
-            exclude=["*.tmp"],
-            encoding='utf-8'
-        ).load_data()
-        all_documents.extend(config_documents)
-        print(f"從配置目錄載入 {len(config_documents)} 個文件")
+        try:
+            # 檢查目錄中是否有 PDF 文件
+            pdf_files = [f for f in os.listdir(input_dir) if f.lower().endswith('.pdf')]
+            if pdf_files:
+                config_documents = SimpleDirectoryReader(
+                    input_dir=input_dir,
+                    recursive=True,
+                    required_exts=[".pdf"],
+                    exclude=["*.tmp"],
+                    encoding='utf-8'
+                ).load_data()
+                all_documents.extend(config_documents)
+                print(f"從配置目錄載入 {len(config_documents)} 個文件")
+            else:
+                print(f"配置目錄 {input_dir} 中沒有找到 PDF 文件")
+        except Exception as e:
+            print(f"載入配置目錄文件時發生錯誤: {e}")
     
     # 載入上傳的文件
     if upload_folder and os.path.exists(upload_folder):
-        upload_documents = SimpleDirectoryReader(
-            input_dir=upload_folder,
-            recursive=True,
-            required_exts=[".pdf"],
-            exclude=["*.tmp"],
-            encoding='utf-8'
-        ).load_data()
-        all_documents.extend(upload_documents)
-        print(f"從上傳目錄載入 {len(upload_documents)} 個文件")
+        try:
+            # 檢查目錄中是否有 PDF 文件
+            pdf_files = [f for f in os.listdir(upload_folder) if f.lower().endswith('.pdf')]
+            if pdf_files:
+                upload_documents = SimpleDirectoryReader(
+                    input_dir=upload_folder,
+                    recursive=True,
+                    required_exts=[".pdf"],
+                    exclude=["*.tmp"],
+                    encoding='utf-8'
+                ).load_data()
+                all_documents.extend(upload_documents)
+                print(f"從上傳目錄載入 {len(upload_documents)} 個文件")
+            else:
+                print(f"上傳目錄 {upload_folder} 中沒有找到 PDF 文件")
+        except Exception as e:
+            print(f"載入上傳目錄文件時發生錯誤: {e}")
     
     print(f"總共載入 {len(all_documents)} 個文件")
     return all_documents
@@ -190,6 +206,44 @@ def process_uploaded_pdf(pdf_path):
     except Exception as e:
         print(f"處理上傳PDF錯誤: {e}")
         raise e
+
+
+def clear_all_data(upload_folder=None, qdrant_url=None, qdrant_key=None, collection_name="operation_guide"):
+    """清空所有資料，包括上傳文件和向量資料庫"""
+    try:
+        # 1. 清空上傳文件夾
+        if upload_folder and os.path.exists(upload_folder):
+            try:
+                for filename in os.listdir(upload_folder):
+                    filepath = os.path.join(upload_folder, filename)
+                    if os.path.isfile(filepath):
+                        try:
+                            os.remove(filepath)
+                            print(f"已刪除文件: {filepath}")
+                        except Exception as e:
+                            print(f"刪除文件失敗 {filepath}: {e}")
+                print(f"已清空上傳文件夾: {upload_folder}")
+            except Exception as e:
+                print(f"清空上傳文件夾時發生錯誤: {e}")
+        
+        # 2. 清空向量資料庫
+        if qdrant_url and qdrant_key:
+            try:
+                qdrant_client_instance = qdrant_client.QdrantClient(url=qdrant_url, api_key=qdrant_key)
+                try:
+                    qdrant_client_instance.delete_collection(collection_name=collection_name)
+                    print(f"已刪除向量資料庫集合: {collection_name}")
+                except Exception as e:
+                    print(f"刪除向量資料庫集合失敗: {e}")
+            except Exception as e:
+                print(f"連接向量資料庫失敗: {e}")
+        
+        print("所有資料清空完成")
+        return True
+        
+    except Exception as e:
+        print(f"清空資料失敗: {e}")
+        return False
 
 
 def initialize_pdf_service(upload_folder=None):

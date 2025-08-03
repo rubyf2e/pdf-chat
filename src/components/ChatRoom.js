@@ -195,15 +195,15 @@ const ChatRoom = () => {
 
     setIsUploading(true);
 
-    // 添加上傳中的消息
-    const uploadingMessage = {
+    // 添加清空資料的提示消息
+    const clearingMessage = {
       id: Date.now(),
-      text: `📤 正在上傳 "${file.name}"...`,
+      text: `🗑️ 正在清空舊資料並上傳新文件 "${file.name}"...\n\n⏳ 這個過程可能需要幾秒鐘，請稍候...`,
       sender: "assistant",
       timestamp: new Date(),
       model: "system",
     };
-    setMessages((prev) => [...prev, uploadingMessage]);
+    setMessages((prev) => [...prev, clearingMessage]);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -219,7 +219,7 @@ const ChatRoom = () => {
       if (response.ok) {
         const successMessage = {
           id: Date.now() + 1,
-          text: `✅ PDF文件 "${file.name}" 上傳成功！現在您可以開始與AI討論這個PDF的內容了。`,
+          text: `✅ 已清空舊資料並成功上傳 "${file.name}"！現在您可以開始與AI討論這個新PDF的內容了。`,
           sender: "assistant",
           timestamp: new Date(),
           model: "system",
@@ -263,6 +263,51 @@ const ChatRoom = () => {
       handleFileUpload(file);
       // 清空文件輸入
       e.target.value = "";
+    }
+  };
+
+  const handleClearData = async () => {
+    if (
+      !window.confirm("確定要清空所有上傳的文件和資料集嗎？此操作無法復原。")
+    ) {
+      return;
+    }
+
+    try {
+      const apiBaseUrl =
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5001";
+      const response = await fetch(`${apiBaseUrl}/api/clear`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const successMessage = {
+          id: Date.now(),
+          text: `🗑️ ${data.message}`,
+          sender: "assistant",
+          timestamp: new Date(),
+          model: "system",
+        };
+        setMessages((prev) => [...prev, successMessage]);
+      } else {
+        throw new Error(data.error || "清空資料失敗");
+      }
+    } catch (error) {
+      console.error("清空資料錯誤:", error);
+      const errorMessage = {
+        id: Date.now(),
+        text: `❌ 清空資料失敗：${error.message}`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: "system",
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     }
   };
 
@@ -331,6 +376,30 @@ const ChatRoom = () => {
               </div>
             )}
           </div>
+
+          {/* 清理資料按鈕 */}
+          <button
+            className="clear-data-button"
+            onClick={handleClearData}
+            title="清空所有資料"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="3,6 5,6 21,6"></polyline>
+              <path d="M19,6l-2,14H7L5,6"></path>
+              <path d="M10,11v6"></path>
+              <path d="M14,11v6"></path>
+              <path d="M9,6V4a1,1 0 0,1 1,-1h4a1,1 0 0,1 1,1V6"></path>
+            </svg>
+          </button>
         </div>
 
         {/* 聊天區域 */}
