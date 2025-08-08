@@ -6,3 +6,4 @@ qdrant-client
 configparser
 flask
 flask-cors
+gunicorn
