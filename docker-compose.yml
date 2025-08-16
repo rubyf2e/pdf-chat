@@ -14,7 +14,7 @@ services:
     ports:
       - "5009:5009"
     volumes:
-      - pdf_uploads:/app/uploads
+      - ./backend/uploads:/app/uploads
       - pdf_logs:/app/logs
       - ./backend/config.ini:/app/config.ini:ro
     environment:

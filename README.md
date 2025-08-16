@@ -5,7 +5,7 @@ PDF 文件 AI 分析與對話系統，採用前後端分離架構。
 ## 🏗️ 專案架構
 
 ```
-pdf_chat/
+pdf-chat/
 ├── frontend/                # React 前端應用
 │   ├── src/                 # 前端原始碼
 │   ├── public/              # 靜態資源

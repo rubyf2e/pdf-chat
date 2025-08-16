@@ -44,7 +44,8 @@ COPY --from=frontend-build /app/frontend/build ./static
 COPY frontend/nginx.conf /etc/nginx/nginx.conf
 
 # 建立必要目錄
-RUN mkdir -p uploads logs /var/log/nginx
+RUN mkdir -p uploads logs /var/log/nginx \
+    && chmod 777 uploads
 
 # 建立啟動腳本
 RUN echo '#!/bin/bash\n\
