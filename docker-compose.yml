@@ -14,7 +14,7 @@ services:
     ports:
       - "5009:5009"
     volumes:
-      - ./backend/uploads:/app/uploads
+      - pdf_uploads:/app/uploads
       - pdf_logs:/app/logs
       - ./backend/config.ini:/app/config.ini:ro
     environment:
@@ -59,6 +59,8 @@ services:
       start_period: 5s
     networks:
       - pdf-chat-network
+    profiles:
+      - prod
 
   # 開發環境前端服務 (可選)
   frontend-dev:
@@ -68,13 +70,14 @@ services:
       target: development
     container_name: pdf-chat-frontend-dev
     ports:
-      - "3001:3000"
+      - "3000:3000"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
     environment:
       - REACT_APP_API_URL=http://localhost:5009/api
       - CHOKIDAR_USEPOLLING=true
+      - PORT=3000
     depends_on:
       backend:
         condition: service_healthy
@@ -86,7 +89,6 @@ services:
 
 volumes:
   pdf_uploads:
-    driver: local
   pdf_logs:
     driver: local
 

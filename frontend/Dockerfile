@@ -51,7 +51,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/build /usr/share/nginx/html
 
 # 暴露端口
-EXPOSE 80
+EXPOSE 3000
 
 # 健康檢查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

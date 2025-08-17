@@ -18,7 +18,7 @@ app = Flask(__name__)
 CORS(app)  # 允許跨域請求
 
 # 文件上傳配置
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 ALLOWED_EXTENSIONS = {'pdf'}
 MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
@@ -27,6 +27,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
 # 確保上傳目錄存在
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.chmod(UPLOAD_FOLDER, 0o777) 
 
 # 全局變數來存儲查詢引擎和上傳的文件
 query_engine = None
@@ -119,6 +120,7 @@ def upload_file():
                 
                 # 確保上傳目錄存在
                 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                os.chmod(UPLOAD_FOLDER, 0o777) 
                 file.save(filepath)
                 
                 logger.info(f"新文件保存成功: {filepath}")

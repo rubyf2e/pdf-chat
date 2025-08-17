@@ -23,12 +23,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 建立必要的目錄
-RUN mkdir -p uploads logs
+RUN mkdir -p uploads logs /var/log/nginx \
+    && chmod 777 uploads
 
 # 建立非 root 使用者
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# RUN groupadd -r flask && useradd -r -g flask flask
+# RUN chown -R flask:flask /app
+
+# USER flask
 
 # 暴露端口
 EXPOSE 5009

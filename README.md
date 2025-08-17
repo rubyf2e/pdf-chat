@@ -29,6 +29,8 @@ pdf-chat/
 ### 使用部署腳本（推薦）
 
 ```bash
+ docker-compose --profile dev up --build
+
 # 啟動生產環境
 ./deploy.sh start
 
