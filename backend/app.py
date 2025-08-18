@@ -8,7 +8,7 @@ import shutil
 from threading import Lock
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf, clear_all_data
+from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf, clear_uploaded_data, add_pdf_to_existing_index, get_upload_folder_info
 import logging
 import configparser
 config_ini = configparser.ConfigParser()
@@ -96,7 +96,7 @@ def upload_file():
                 logger.info("清空現有上傳文件和資料集...")
                 
                 # 使用新的清理函數
-                clear_success = clear_all_data(
+                clear_success = clear_uploaded_data(
                     upload_folder=UPLOAD_FOLDER,
                     qdrant_url=config_ini['QDRANT']['URL'],
                     qdrant_key=config_ini['QDRANT']['API_KEY']
@@ -229,7 +229,7 @@ def clear_all():
             logger.info("手動清空所有資料...")
             
             # 清空所有資料
-            clear_success = clear_all_data(
+            clear_success = clear_uploaded_data(
                 upload_folder=UPLOAD_FOLDER,
                 qdrant_url=config_ini['QDRANT']['URL'],
                 qdrant_key=config_ini['QDRANT']['API_KEY']

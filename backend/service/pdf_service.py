@@ -42,59 +42,56 @@ def setup_models(config):
     return llm, embed_model
 
 
-def load_documents(input_dir, upload_folder=None):
-    """載入 PDF 文件"""
-    all_documents = []
+def load_uploaded_documents(upload_folder):
+    """只載入上傳目錄中的 PDF 文件，節省記憶體"""
+    if not upload_folder or not os.path.exists(upload_folder):
+        print(f"上傳目錄不存在: {upload_folder}")
+        sys.stdout.flush()
+        return []
     
-    # 載入配置文件中指定的文件
-    if input_dir and os.path.exists(input_dir):
-        try:
-            # 檢查目錄中是否有 PDF 文件
-            pdf_files = [f for f in os.listdir(input_dir) if f.lower().endswith('.pdf')]
-            if pdf_files:
-                config_documents = SimpleDirectoryReader(
-                    input_dir=input_dir,
-                    recursive=True,
-                    required_exts=[".pdf"],
-                    exclude=["*.tmp"],
+    try:
+        # 檢查目錄中是否有 PDF 文件
+        pdf_files = [f for f in os.listdir(upload_folder) if f.lower().endswith('.pdf')]
+        if not pdf_files:
+            print(f"上傳目錄 {upload_folder} 中沒有找到 PDF 文件")
+            sys.stdout.flush()
+            return []
+        
+        print(f"找到 {len(pdf_files)} 個 PDF 文件: {pdf_files}")
+        sys.stdout.flush()
+        
+        # 逐個載入文件以減少記憶體使用
+        all_documents = []
+        for pdf_file in pdf_files:
+            file_path = os.path.join(upload_folder, pdf_file)
+            try:
+                # 使用 SimpleDirectoryReader 載入單個文件
+                documents = SimpleDirectoryReader(
+                    input_files=[file_path],
                     encoding='utf-8'
                 ).load_data()
-                all_documents.extend(config_documents)
-                print(f"從配置目錄載入 {len(config_documents)} 個文件")
+                
+                all_documents.extend(documents)
+                print(f"載入文件 {pdf_file}: {len(documents)} 個文檔片段")
                 sys.stdout.flush()
-            else:
-                print(f"配置目錄 {input_dir} 中沒有找到 PDF 文件")
+                
+                # 手動觸發垃圾回收
+                import gc
+                gc.collect()
+                
+            except Exception as e:
+                print(f"載入文件 {pdf_file} 時發生錯誤: {e}")
                 sys.stdout.flush()
-        except Exception as e:
-            print(f"載入配置目錄文件時發生錯誤: {e}")
-            sys.stdout.flush()
-    
-    # 載入上傳的文件
-    if upload_folder and os.path.exists(upload_folder):
-        try:
-            # 檢查目錄中是否有 PDF 文件
-            pdf_files = [f for f in os.listdir(upload_folder) if f.lower().endswith('.pdf')]
-            if pdf_files:
-                upload_documents = SimpleDirectoryReader(
-                    input_dir=upload_folder,
-                    recursive=True,
-                    required_exts=[".pdf"],
-                    exclude=["*.tmp"],
-                    encoding='utf-8'
-                ).load_data()
-                all_documents.extend(upload_documents)
-                print(f"從上傳目錄載入 {len(upload_documents)} 個文件")
-                sys.stdout.flush()
-            else:
-                print(f"上傳目錄 {upload_folder} 中沒有找到 PDF 文件")
-                sys.stdout.flush()
-        except Exception as e:
-            print(f"載入上傳目錄文件時發生錯誤: {e}")
-            sys.stdout.flush()
-    
-    print(f"總共載入 {len(all_documents)} 個文件")
-    sys.stdout.flush()
-    return all_documents
+                continue
+        
+        print(f"總共載入 {len(all_documents)} 個文檔片段")
+        sys.stdout.flush()
+        return all_documents
+        
+    except Exception as e:
+        print(f"載入上傳目錄文件時發生錯誤: {e}")
+        sys.stdout.flush()
+        return []
 
 
 def setup_vector_store(qdrant_url, qdrant_key, collection_name="operation_guide"):
@@ -121,17 +118,68 @@ def setup_vector_store(qdrant_url, qdrant_key, collection_name="operation_guide"
 
 
 def create_vector_index(documents, storage_context):
-    """建立向量索引"""
-    index = VectorStoreIndex.from_documents(
-        documents,
-        storage_context=storage_context,
-        vector_store_kwargs={"enable_hybrid": True},
-        show_progress=False,
-    )
+    """建立向量索引，使用小批次處理以節省記憶體"""
+    if not documents:
+        print("沒有文檔可以建立索引")
+        sys.stdout.flush()
+        return None
     
-    print("向量索引建立完成")
+    # 使用更小的批次大小以節省記憶體
+    batch_size = 3  # 減少到每批3個文檔片段
+    
+    print(f"開始分批建立向量索引，總文檔片段數: {len(documents)}, 批次大小: {batch_size}")
     sys.stdout.flush()
-    return index
+    
+    index = None
+    processed_count = 0
+    
+    try:
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i+batch_size]
+            batch_num = i // batch_size + 1
+            
+            print(f"處理第 {batch_num} 批，文檔片段數: {len(batch)} (已處理: {processed_count}/{len(documents)})")
+            sys.stdout.flush()
+            
+            if index is None:
+                # 第一批：建立新索引
+                index = VectorStoreIndex.from_documents(
+                    batch,
+                    storage_context=storage_context,
+                    vector_store_kwargs={"enable_hybrid": True},
+                    show_progress=False,
+                )
+                print(f"已建立初始索引，包含 {len(batch)} 個文檔片段")
+            else:
+                # 後續批次：逐個添加到現有索引以減少記憶體峰值
+                for j, doc in enumerate(batch):
+                    try:
+                        index.insert(doc)
+                        processed_count += 1
+                        if (processed_count % 5) == 0:  # 每5個文檔片段顯示一次進度
+                            print(f"已處理 {processed_count}/{len(documents)} 個文檔片段")
+                            sys.stdout.flush()
+                    except Exception as e:
+                        print(f"插入文檔片段時發生錯誤: {e}")
+                        sys.stdout.flush()
+                        continue
+            
+            # 每批處理後手動觸發垃圾回收
+            import gc
+            gc.collect()
+            
+            # 給系統一點時間回收記憶體
+            import time
+            time.sleep(0.1)
+        
+        print("向量索引建立完成")
+        sys.stdout.flush()
+        return index
+        
+    except Exception as e:
+        print(f"建立向量索引時發生錯誤: {e}")
+        sys.stdout.flush()
+        return None
 
 
 def create_query_engine(index, config):
@@ -203,38 +251,91 @@ def query_pdf(query_engine, question: str):
 
 
 def process_uploaded_pdf(pdf_path):
-    """處理單個上傳的PDF文件"""
+    """處理單個上傳的PDF文件，節省記憶體"""
     try:
+        if not os.path.exists(pdf_path):
+            print(f"文件不存在: {pdf_path}")
+            return []
+        
         # 使用SimpleDirectoryReader讀取單個文件
         documents = SimpleDirectoryReader(
             input_files=[pdf_path],
             encoding='utf-8'
         ).load_data()
         
-        print(f"成功處理上傳的PDF: {pdf_path}, 文件數量: {len(documents)}")
+        print(f"成功處理上傳的PDF: {os.path.basename(pdf_path)}, 文檔片段數量: {len(documents)}")
+        sys.stdout.flush()
+        
+        # 手動觸發垃圾回收
+        import gc
+        gc.collect()
+        
         return documents
     except Exception as e:
         print(f"處理上傳PDF錯誤: {e}")
+        sys.stdout.flush()
         raise e
 
 
-def clear_all_data(upload_folder=None, qdrant_url=None, qdrant_key=None, collection_name="operation_guide"):
-    """清空所有資料，包括上傳文件和向量資料庫"""
+def add_pdf_to_existing_index(pdf_path, query_engine):
+    """將新的PDF添加到現有的索引中，節省記憶體"""
+    try:
+        # 處理新的PDF文件
+        new_documents = process_uploaded_pdf(pdf_path)
+        if not new_documents:
+            return query_engine
+        
+        # 獲取現有的索引
+        index = query_engine._index if hasattr(query_engine, '_index') else None
+        if index is None:
+            print("無法獲取現有索引，需要重新初始化服務")
+            return None
+        
+        # 分批添加新文檔以節省記憶體
+        batch_size = 2  # 更小的批次
+        for i in range(0, len(new_documents), batch_size):
+            batch = new_documents[i:i+batch_size]
+            for doc in batch:
+                index.insert(doc)
+            
+            # 手動觸發垃圾回收
+            import gc
+            gc.collect()
+            
+            print(f"已添加 {min(i+batch_size, len(new_documents))}/{len(new_documents)} 個文檔片段到索引")
+            sys.stdout.flush()
+        
+        print(f"成功將 {len(new_documents)} 個文檔片段添加到現有索引")
+        sys.stdout.flush()
+        return query_engine
+        
+    except Exception as e:
+        print(f"添加PDF到索引時發生錯誤: {e}")
+        sys.stdout.flush()
+        return None
+
+
+def clear_uploaded_data(upload_folder=None, qdrant_url=None, qdrant_key=None, collection_name="operation_guide"):
+    """清空上傳的資料，包括上傳文件和向量資料庫"""
     try:
         # 1. 清空上傳文件夾
         if upload_folder and os.path.exists(upload_folder):
             try:
-                for filename in os.listdir(upload_folder):
+                pdf_files = [f for f in os.listdir(upload_folder) if f.lower().endswith('.pdf')]
+                for filename in pdf_files:
                     filepath = os.path.join(upload_folder, filename)
-                    if os.path.isfile(filepath):
-                        try:
-                            os.remove(filepath)
-                            print(f"已刪除文件: {filepath}")
-                        except Exception as e:
-                            print(f"刪除文件失敗 {filepath}: {e}")
-                print(f"已清空上傳文件夾: {upload_folder}")
+                    try:
+                        os.remove(filepath)
+                        print(f"已刪除上傳的PDF文件: {filename}")
+                        sys.stdout.flush()
+                    except Exception as e:
+                        print(f"刪除文件失敗 {filename}: {e}")
+                        sys.stdout.flush()
+                print(f"已清空上傳的PDF文件，共清理 {len(pdf_files)} 個文件")
+                sys.stdout.flush()
             except Exception as e:
                 print(f"清空上傳文件夾時發生錯誤: {e}")
+                sys.stdout.flush()
         
         # 2. 清空向量資料庫
         if qdrant_url and qdrant_key:
@@ -243,33 +344,86 @@ def clear_all_data(upload_folder=None, qdrant_url=None, qdrant_key=None, collect
                 try:
                     qdrant_client_instance.delete_collection(collection_name=collection_name)
                     print(f"已刪除向量資料庫集合: {collection_name}")
+                    sys.stdout.flush()
                 except Exception as e:
                     print(f"刪除向量資料庫集合失敗: {e}")
+                    sys.stdout.flush()
             except Exception as e:
                 print(f"連接向量資料庫失敗: {e}")
+                sys.stdout.flush()
         
-        print("所有資料清空完成")
+        # 手動觸發垃圾回收
+        import gc
+        gc.collect()
+        
+        print("上傳資料清空完成")
+        sys.stdout.flush()
         return True
         
     except Exception as e:
-        print(f"清空資料失敗: {e}")
+        print(f"清空上傳資料失敗: {e}")
+        sys.stdout.flush()
         return False
 
 
+def get_upload_folder_info(upload_folder):
+    """獲取上傳文件夾的資訊"""
+    try:
+        if not upload_folder or not os.path.exists(upload_folder):
+            return {
+                'exists': False,
+                'pdf_count': 0,
+                'pdf_files': [],
+                'total_size': 0
+            }
+        
+        pdf_files = [f for f in os.listdir(upload_folder) if f.lower().endswith('.pdf')]
+        total_size = 0
+        
+        for pdf_file in pdf_files:
+            file_path = os.path.join(upload_folder, pdf_file)
+            try:
+                total_size += os.path.getsize(file_path)
+            except:
+                pass
+        
+        return {
+            'exists': True,
+            'pdf_count': len(pdf_files),
+            'pdf_files': pdf_files,
+            'total_size': total_size,
+            'total_size_mb': round(total_size / (1024 * 1024), 2)
+        }
+        
+    except Exception as e:
+        print(f"獲取上傳文件夾資訊時發生錯誤: {e}")
+        return {
+            'exists': False,
+            'pdf_count': 0,
+            'pdf_files': [],
+            'total_size': 0,
+            'error': str(e)
+        }
+
+
 def initialize_pdf_service(upload_folder=None):
-    """初始化完整的 PDF 服務"""
+    """初始化完整的 PDF 服務，只處理上傳的文件"""
     # 1. 載入設定
     config = load_config()
     
     # 2. 設定模型
     llm, embed_model = setup_models(config)
     
-    # 3. 載入文件（包括上傳的文件）
-    documents = load_documents(config['input_dir'], upload_folder)
+    # 3. 只載入上傳的文件
+    if not upload_folder:
+        upload_folder = config.get('input_dir', './uploads')
+    
+    documents = load_uploaded_documents(upload_folder)
     
     # 如果沒有文件，返回None
     if not documents:
-        print("警告: 沒有找到任何PDF文件")
+        print("警告: 沒有找到任何上傳的PDF文件")
+        sys.stdout.flush()
         return None
     
     # 4. 設定向量資料庫
@@ -280,6 +434,10 @@ def initialize_pdf_service(upload_folder=None):
     
     # 5. 建立向量索引
     index = create_vector_index(documents, storage_context)
+    if index is None:
+        print("錯誤: 無法建立向量索引")
+        sys.stdout.flush()
+        return None
     
     # 6. 建立查詢引擎
     query_engine = create_query_engine(index, config)
