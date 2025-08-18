@@ -285,15 +285,16 @@ const ChatRoom = () => {
 
     setIsUploading(true);
 
-    // 添加清空資料的提示消息
-    const clearingMessage = {
-      id: Date.now(),
-      text: `🗑️ 正在清空舊資料並上傳新文件 "${file.name}"...\n\n⏳ 這個過程可能需要幾秒鐘，請稍候...`,
+    // 添加上傳開始的消息
+    const uploadingMessageId = Date.now();
+    const uploadingMessage = {
+      id: uploadingMessageId,
+      text: `� 正在上傳文件 "${file.name}"...\n\n⏳ 請稍候，這個過程可能需要一些時間...`,
       sender: "assistant",
       timestamp: new Date(),
       model: "system",
     };
-    setMessages((prev) => [...prev, clearingMessage]);
+    setMessages((prev) => [...prev, uploadingMessage]);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -301,46 +302,171 @@ const ChatRoom = () => {
     try {
       const apiBaseUrl =
         process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+      
+      // 設置較長的超時時間
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分鐘超時
+
       const response = await fetch(`${apiBaseUrl}/api/upload`, {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
       if (response.ok) {
-        const successMessage = {
-          id: Date.now() + 1,
-          text: `✅ 已清空舊資料並成功上傳 "${file.name}"！現在您可以開始與AI討論這個新PDF的內容了。`,
+        const responseData = await response.json();
+        
+        // 更新上傳狀態消息
+        const uploadSuccessMessage = {
+          id: uploadingMessageId,
+          text: `✅ 文件 "${file.name}" 上傳成功！\n\n🔄 正在處理和索引文件內容，請稍候...`,
           sender: "assistant",
           timestamp: new Date(),
           model: "system",
         };
-        setMessages((prev) => [...prev, successMessage]);
+        setMessages((prev) => 
+          prev.map(msg => msg.id === uploadingMessageId ? uploadSuccessMessage : msg)
+        );
+
+        // 如果是異步處理，開始輪詢狀態
+        if (responseData.processing) {
+          await pollProcessingStatus(uploadingMessageId, file.name);
+        } else {
+          // 立即完成
+          const finalMessage = {
+            id: uploadingMessageId,
+            text: `✅ 文件 "${file.name}" 已完成處理！現在您可以開始與AI討論這個PDF的內容了。`,
+            sender: "assistant",
+            timestamp: new Date(),
+            model: "system",
+          };
+          setMessages((prev) => 
+            prev.map(msg => msg.id === uploadingMessageId ? finalMessage : msg)
+          );
+        }
       } else {
         const errorData = await response.json();
         const errorMessage = {
-          id: Date.now() + 1,
+          id: uploadingMessageId,
           text: `❌ 文件上傳失敗：${errorData.error}`,
           sender: "assistant",
           timestamp: new Date(),
           model: "system",
           isError: true,
         };
-        setMessages((prev) => [...prev, errorMessage]);
+        setMessages((prev) => 
+          prev.map(msg => msg.id === uploadingMessageId ? errorMessage : msg)
+        );
       }
     } catch (error) {
       console.error("上傳錯誤:", error);
+      let errorText = "❌ 上傳失敗，請重試";
+      
+      if (error.name === 'AbortError') {
+        errorText = "❌ 上傳超時，請檢查文件大小並重試";
+      } else if (error.message) {
+        errorText = `❌ 上傳失敗：${error.message}`;
+      }
+
       const errorMessage = {
-        id: Date.now() + 1,
-        text: `❌ 上傳失敗，請重試`,
+        id: uploadingMessageId,
+        text: errorText,
         sender: "assistant",
         timestamp: new Date(),
         model: "system",
         isError: true,
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => 
+        prev.map(msg => msg.id === uploadingMessageId ? errorMessage : msg)
+      );
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // 輪詢處理狀態的函數
+  const pollProcessingStatus = async (messageId, fileName) => {
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+    const maxAttempts = 60; // 最多輪詢 60 次（5分鐘）
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        attempts++;
+        const response = await fetch(`${apiBaseUrl}/api/status`);
+        
+        if (response.ok) {
+          const statusData = await response.json();
+          const processingFiles = statusData.files_detail.filter(f => f.status === 'processing');
+          const errorFiles = statusData.files_detail.filter(f => f.status === 'error');
+          
+          if (errorFiles.length > 0) {
+            // 有錯誤的文件
+            const errorFile = errorFiles[0];
+            const errorMessage = {
+              id: messageId,
+              text: `❌ 文件 "${fileName}" 處理失敗：${errorFile.error || '未知錯誤'}`,
+              sender: "assistant",
+              timestamp: new Date(),
+              model: "system",
+              isError: true,
+            };
+            setMessages((prev) => 
+              prev.map(msg => msg.id === messageId ? errorMessage : msg)
+            );
+            return;
+          }
+          
+          if (processingFiles.length === 0 && statusData.query_engine_ready) {
+            // 處理完成
+            const successMessage = {
+              id: messageId,
+              text: `✅ 文件 "${fileName}" 已完成處理！現在您可以開始與AI討論這個PDF的內容了。`,
+              sender: "assistant",
+              timestamp: new Date(),
+              model: "system",
+            };
+            setMessages((prev) => 
+              prev.map(msg => msg.id === messageId ? successMessage : msg)
+            );
+            return;
+          }
+          
+          if (attempts < maxAttempts) {
+            // 繼續輪詢
+            setTimeout(poll, 5000); // 每5秒檢查一次
+          } else {
+            // 超時
+            const timeoutMessage = {
+              id: messageId,
+              text: `⚠️ 文件 "${fileName}" 處理時間較長，請稍後手動檢查狀態或重新上傳。`,
+              sender: "assistant",
+              timestamp: new Date(),
+              model: "system",
+              isError: true,
+            };
+            setMessages((prev) => 
+              prev.map(msg => msg.id === messageId ? timeoutMessage : msg)
+            );
+          }
+        } else {
+          console.error("狀態檢查失敗:", response.status);
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 5000);
+          }
+        }
+      } catch (error) {
+        console.error("輪詢狀態錯誤:", error);
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000);
+        }
+      }
+    };
+
+    // 開始輪詢
+    setTimeout(poll, 3000); // 3秒後開始第一次檢查
   };
 
   const handleUploadButtonClick = () => {

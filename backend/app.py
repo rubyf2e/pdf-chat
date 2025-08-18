@@ -62,7 +62,7 @@ def get_query_engine(upload_folder=None):
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
-    """處理文件上傳"""
+    """處理文件上傳 - 改進版本，支援異步處理"""
     try:
         # 檢查是否有文件被上傳
         if 'file' not in request.files:
@@ -129,25 +129,46 @@ def upload_file():
                     'filename': filename,
                     'original_name': file.filename,
                     'filepath': filepath,
-                    'upload_time': time.time()
+                    'upload_time': time.time(),
+                    'status': 'processing'
                 })
                 
-                # 重新初始化服務（只包含新上傳的文件）
-                logger.info("重新初始化 PDF 服務以包含新上傳的文件...")
-                query_engine = initialize_pdf_service(upload_folder=UPLOAD_FOLDER)
-                logger.info("PDF 服務重新初始化完成")
-            
-            return jsonify({
-                'message': 'PDF 文件上傳並處理成功',
-                'filename': file.filename,
-                'status': 'success',
-                'timestamp': time.time()
-            })
+                # 立即返回成功響應，在背景處理索引
+                response_data = {
+                    'message': 'PDF 文件上傳成功，正在處理中...',
+                    'filename': file.filename,
+                    'status': 'uploading',
+                    'processing': True,
+                    'timestamp': time.time()
+                }
+                
+                # 在背景線程中處理索引
+                import threading
+                def process_in_background():
+                    try:
+                        logger.info("背景處理：重新初始化 PDF 服務以包含新上傳的文件...")
+                        global query_engine
+                        query_engine = initialize_pdf_service(upload_folder=UPLOAD_FOLDER)
+                        # 更新文件狀態
+                        if uploaded_files:
+                            uploaded_files[-1]['status'] = 'completed'
+                        logger.info("背景處理：PDF 服務重新初始化完成")
+                    except Exception as e:
+                        logger.error(f"背景處理錯誤: {e}")
+                        if uploaded_files:
+                            uploaded_files[-1]['status'] = 'error'
+                            uploaded_files[-1]['error'] = str(e)
+                
+                thread = threading.Thread(target=process_in_background)
+                thread.daemon = True
+                thread.start()
+                
+                return jsonify(response_data)
             
         except Exception as e:
             logger.error(f"處理上傳文件錯誤: {e}")
             # 如果處理失敗，刪除上傳的文件
-            if os.path.exists(filepath):
+            if 'filepath' in locals() and os.path.exists(filepath):
                 os.remove(filepath)
             return jsonify({
                 'error': f'處理上傳的PDF文件時發生錯誤: {str(e)}',
@@ -163,14 +184,59 @@ def upload_file():
 
 @app.route('/api/files', methods=['GET'])
 def list_files():
-    """列出已上傳的文件"""
-    global uploaded_files
-    
-    return jsonify({
-        'files': uploaded_files,
-        'count': len(uploaded_files),
-        'status': 'success'
-    })
+    """列出所有上傳的文件"""
+    try:
+        files_info = []
+        for file_info in uploaded_files:
+            files_info.append({
+                'filename': file_info.get('original_name', file_info['filename']),
+                'upload_time': file_info['upload_time'],
+                'status': file_info.get('status', 'completed'),
+                'error': file_info.get('error', None)
+            })
+        
+        return jsonify({
+            'files': files_info,
+            'total': len(files_info),
+            'status': 'success'
+        })
+    except Exception as e:
+        logger.error(f"列出文件錯誤: {e}")
+        return jsonify({
+            'error': f'獲取文件列表失敗: {str(e)}',
+            'status': 'error'
+        }), 500
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """獲取系統狀態和處理進度"""
+    try:
+        # 檢查是否有文件正在處理
+        processing_files = [f for f in uploaded_files if f.get('status') == 'processing']
+        completed_files = [f for f in uploaded_files if f.get('status') == 'completed']
+        error_files = [f for f in uploaded_files if f.get('status') == 'error']
+        
+        return jsonify({
+            'query_engine_ready': query_engine is not None,
+            'total_files': len(uploaded_files),
+            'processing_files': len(processing_files),
+            'completed_files': len(completed_files),
+            'error_files': len(error_files),
+            'files_detail': [{
+                'filename': f.get('original_name', f['filename']),
+                'status': f.get('status', 'unknown'),
+                'upload_time': f['upload_time'],
+                'error': f.get('error', None)
+            } for f in uploaded_files],
+            'status': 'ready' if query_engine is not None else 'initializing',
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        logger.error(f"獲取狀態錯誤: {e}")
+        return jsonify({
+            'error': f'獲取系統狀態失敗: {str(e)}',
+            'status': 'error'
+        }), 500
 
 @app.route('/api/files/<filename>', methods=['DELETE'])
 def delete_file(filename):
