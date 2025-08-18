@@ -11,6 +11,10 @@ WORKDIR /app
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 
+# 設定 PUBLIC_URL 以確保正確的靜態資源路徑
+ARG PUBLIC_URL=/pdf-chat
+ENV PUBLIC_URL=${PUBLIC_URL}
+
 # 複製 package.json 和 package-lock.json
 COPY package*.json ./
 
