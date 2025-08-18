@@ -4,40 +4,42 @@
 
 FROM python:3.11-slim
 
-# 設定環境變數
-ENV PYTHONPATH=/app
-
-# 安裝系統依賴
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # 設定工作目錄
 WORKDIR /app
 
-# 複製 requirements.txt 並安裝 Python 依賴
+# 設定 Python 環境變數
+ENV FLASK_ENV=${FLASK_ENV} \
+    PORT_PDF_CHAT_BACKEND=${PORT_PDF_CHAT_BACKEND} \
+    PORT_PDF_CHAT_FRONTEND=${PORT_PDF_CHAT_FRONTEND} \
+    PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 複製依賴文件
 COPY requirements.txt .
+
+# 安裝 Python 依賴
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 複製應用程式碼
 COPY . .
 
 # 建立必要的目錄
-RUN mkdir -p uploads logs /var/log/nginx \
+RUN mkdir -p uploads logs \
     && chmod 777 uploads
 
-# 建立非 root 使用者
-# RUN groupadd -r flask && useradd -r -g flask flask
-# RUN chown -R flask:flask /app
-
-# USER flask
+# 設定健康檢查
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://127.0.0.1:${PORT_PDF_CHAT_BACKEND}/api/status || exit 1
 
 # 暴露端口
-EXPOSE 5009
+EXPOSE ${PORT_PDF_CHAT_BACKEND}
 
-# 健康檢查
-HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:5009/api/status || exit 1
-
-# 啟動應用
-CMD ["gunicorn", "--bind", "0.0.0.0:5009", "--workers", "4", "--timeout", "120", "--keep-alive", "5", "app:app"]
+# 使用 gunicorn 啟動
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "wsgi:app"]

@@ -2,9 +2,11 @@
 # Frontend Dockerfile - React Application
 # ============================================================================
 
-# 階段 1: 開發環境
-FROM node:18-alpine AS development
+# 多階段構建
+# 第一階段：構建階段
+FROM node:18-alpine AS build
 
+# 設定工作目錄
 WORKDIR /app
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
@@ -13,49 +15,29 @@ ENV NODE_ENV=${NODE_ENV}
 COPY package*.json ./
 
 # 安裝依賴
-RUN npm ci
-
-# 複製原始碼
-COPY . .
-
-# 暴露開發端口
-EXPOSE 3000
-
-# 開發環境啟動命令
-CMD ["npm", "start"]
-
-# 階段 2: 建置階段
-FROM node:18-alpine AS build
-
-WORKDIR /app
-
-# 複製 package.json 和 package-lock.json
-COPY package*.json ./
-
-# 安裝依賴 (僅生產依賴)
 RUN if [ "$NODE_ENV" = "production" ]; then npm ci --only=production; else npm ci; fi
 
-# 複製原始碼
+# 複製源代碼
 COPY . .
 
-# 建置應用
+# 構建應用
 RUN npm run build
 
-# 階段 3: 生產環境 - 使用 nginx 提供靜態檔案
-FROM nginx:alpine AS production
+# 第二階段：運行階段
+FROM nginx:alpine
 
-# 複製自訂 nginx 配置
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# 複製建置後的檔案到 nginx
+# 複製構建好的檔案到 nginx 默認目錄
 COPY --from=build /app/build /usr/share/nginx/html
 
+# 複製 nginx 配置模板和啟動腳本
+COPY ./nginx.conf.template /etc/nginx/nginx.conf.template
+COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+
+# 設定執行權限
+RUN chmod +x /docker-entrypoint.sh
+
+# 設定入口點
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
 # 暴露端口
-EXPOSE 3000
-
-# 健康檢查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
-
-# 啟動 nginx
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 80

@@ -8,6 +8,7 @@ from llama_index.core.postprocessor import LongContextReorder
 import qdrant_client
 import configparser
 import os
+import sys
 
 
 def load_config():
@@ -60,10 +61,13 @@ def load_documents(input_dir, upload_folder=None):
                 ).load_data()
                 all_documents.extend(config_documents)
                 print(f"從配置目錄載入 {len(config_documents)} 個文件")
+                sys.stdout.flush()
             else:
                 print(f"配置目錄 {input_dir} 中沒有找到 PDF 文件")
+                sys.stdout.flush()
         except Exception as e:
             print(f"載入配置目錄文件時發生錯誤: {e}")
+            sys.stdout.flush()
     
     # 載入上傳的文件
     if upload_folder and os.path.exists(upload_folder):
@@ -80,12 +84,16 @@ def load_documents(input_dir, upload_folder=None):
                 ).load_data()
                 all_documents.extend(upload_documents)
                 print(f"從上傳目錄載入 {len(upload_documents)} 個文件")
+                sys.stdout.flush()
             else:
                 print(f"上傳目錄 {upload_folder} 中沒有找到 PDF 文件")
+                sys.stdout.flush()
         except Exception as e:
             print(f"載入上傳目錄文件時發生錯誤: {e}")
+            sys.stdout.flush()
     
     print(f"總共載入 {len(all_documents)} 個文件")
+    sys.stdout.flush()
     return all_documents
 
 
@@ -118,10 +126,11 @@ def create_vector_index(documents, storage_context):
         documents,
         storage_context=storage_context,
         vector_store_kwargs={"enable_hybrid": True},
-        show_progress=True,
+        show_progress=False,
     )
     
     print("向量索引建立完成")
+    sys.stdout.flush()
     return index
 
 
@@ -144,6 +153,7 @@ def create_query_engine(index, config):
     )
     
     print("查詢引擎建立完成")
+    sys.stdout.flush()
     return query_engine
 
 

@@ -7,6 +7,7 @@ configparser
 flask
 flask-cors
 gunicorn
+gevent
 unstructured
 lxml
 fastembed

@@ -3,13 +3,17 @@ from flask_cors import CORS
 import json
 import time
 import os
+import sys
 import shutil
 from threading import Lock
 from werkzeug.utils import secure_filename
 from pathlib import Path
 from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf, clear_all_data
 import logging
-
+import configparser
+config_ini = configparser.ConfigParser()
+config_ini.read('config.ini')
+                
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,11 +94,6 @@ def upload_file():
             # 先清空現有資料
             with initialization_lock:
                 logger.info("清空現有上傳文件和資料集...")
-                
-                # 載入配置以獲取 Qdrant 資訊
-                import configparser
-                config_ini = configparser.ConfigParser()
-                config_ini.read('config.ini')
                 
                 # 使用新的清理函數
                 clear_success = clear_all_data(
@@ -229,11 +228,6 @@ def clear_all():
         with initialization_lock:
             logger.info("手動清空所有資料...")
             
-            # 載入配置
-            import configparser
-            config_ini = configparser.ConfigParser()
-            config_ini.read('config.ini')
-            
             # 清空所有資料
             clear_success = clear_all_data(
                 upload_folder=UPLOAD_FOLDER,
@@ -267,71 +261,14 @@ def clear_all():
             'status': 'error'
         }), 500
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """健康檢查端點"""
+@app.route('/api/status', methods=['GET'])
+def status_check():
+    """狀態檢查端點 - 用於 Docker 健康檢查"""
     return jsonify({
         'status': 'healthy',
         'message': 'PDF Chat API is running',
         'timestamp': time.time()
     })
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    """處理聊天請求"""
-    try:
-        data = request.get_json()
-        
-        if not data or 'message' not in data:
-            return jsonify({
-                'error': '缺少必要的訊息內容'
-            }), 400
-        
-        user_message = data['message'].strip()
-        if not user_message:
-            return jsonify({
-                'error': '訊息內容不能為空'
-            }), 400
-        
-        # 獲取查詢引擎
-        engine = get_query_engine(upload_folder=UPLOAD_FOLDER)
-        
-        # 執行查詢
-        logger.info(f"處理查詢: {user_message}")
-        response = query_pdf(engine, user_message)
-        
-        # 提取回應文字
-        response_text = str(response.response) if hasattr(response, 'response') else str(response)
-        
-        # 提取來源資訊
-        sources = []
-        if hasattr(response, 'source_info') and response.source_info:
-            sources = response.source_info
-            
-        # 如果有來源資訊，在回應中添加
-        if sources:
-            source_text = "\n\n📖 參考來源："
-            for i, source in enumerate(sources[:3], 1):  # 只顯示前3個來源
-                file_name = source.get('file_name', '未知文件')
-                page = source.get('page', '未知頁數')
-                score = source.get('score', 0.0)
-                source_text += f"\n{i}. {file_name} - 第 {page} 頁 (相關度: {score:.2f})"
-            
-            response_text += source_text
-        
-        return jsonify({
-            'response': response_text,
-            'sources': sources,
-            'timestamp': time.time(),
-            'status': 'success'
-        })
-        
-    except Exception as e:
-        logger.error(f"聊天處理錯誤: {e}")
-        return jsonify({
-            'error': f'處理請求時發生錯誤: {str(e)}',
-            'status': 'error'
-        }), 500
 
 @app.route('/api/chat/stream', methods=['POST'])
 def chat_stream():
@@ -354,19 +291,50 @@ def chat_stream():
             try:
                 # 獲取查詢引擎
                 engine = get_query_engine(upload_folder=UPLOAD_FOLDER)
+                if engine is None:
+                    yield f"data: {json.dumps({'error': 'PDF 服務未初始化，請先上傳文件', 'status': 'error'})}\n\n"
+                    sys.stdout.flush()
+                    return
                 
                 # 執行查詢
                 logger.info(f"處理流式查詢: {user_message}")
                 response = query_pdf(engine, user_message)
                 
+                # 檢查是否有回應
+                if response is None:
+                    yield f"data: {json.dumps({'error': '查詢失敗，沒有收到回應', 'status': 'error'})}\n\n"
+                    sys.stdout.flush()
+                    return
+                
                 # 處理流式回應
-                if hasattr(response, 'response_gen'):
-                    for chunk in response.response_gen:
-                        yield f"data: {json.dumps({'chunk': chunk, 'status': 'streaming'})}\n\n"
+                if hasattr(response, 'response_gen') and response.response_gen:
+                    logger.info("使用流式回應生成器")
+                    try:
+                        for chunk in response.response_gen:
+                            if chunk and chunk.strip():
+                                yield f"data: {json.dumps({'chunk': str(chunk), 'status': 'streaming'})}\n\n"
+                                sys.stdout.flush()
+                    except Exception as gen_error:
+                        logger.error(f"流式生成器錯誤: {gen_error}")
+                        # 如果流式失敗，回退到完整回應
+                        response_text = str(response.response) if hasattr(response, 'response') else str(response)
+                        yield f"data: {json.dumps({'chunk': response_text, 'status': 'complete'})}\n\n"
+                        sys.stdout.flush()
                 else:
-                    # 如果不支援流式，則一次性返回
+                    # 非流式回應，模擬流式輸出
                     response_text = str(response.response) if hasattr(response, 'response') else str(response)
-                    yield f"data: {json.dumps({'chunk': response_text, 'status': 'complete'})}\n\n"
+                    logger.info("使用模擬流式回應")
+                    
+                    # 將回應分割成小塊來模擬流式輸出
+                    words = response_text.split()
+                    chunk_size = 5  # 每次發送5個字
+                    
+                    for i in range(0, len(words), chunk_size):
+                        chunk = ' '.join(words[i:i+chunk_size])
+                        if chunk.strip():
+                            yield f"data: {json.dumps({'chunk': chunk + ' ', 'status': 'streaming'})}\n\n"
+                            sys.stdout.flush()
+                            time.sleep(0.05)  # 小延遲模擬打字效果
                 
                 # 發送來源資訊
                 if hasattr(response, 'source_info') and response.source_info:
@@ -379,12 +347,16 @@ def chat_stream():
                         source_text += f"\n{i}. {file_name} - 第 {page} 頁 (相關度: {score:.2f})"
                     
                     yield f"data: {json.dumps({'chunk': source_text, 'sources': sources, 'status': 'sources'})}\n\n"
+                    sys.stdout.flush()
                 
+                # 發送完成信號
                 yield f"data: {json.dumps({'status': 'complete'})}\n\n"
+                sys.stdout.flush()
                 
             except Exception as e:
                 logger.error(f"流式聊天處理錯誤: {e}")
-                yield f"data: {json.dumps({'error': str(e), 'status': 'error'})}\n\n"
+                yield f"data: {json.dumps({'error': f'處理請求時發生錯誤: {str(e)}', 'status': 'error'})}\n\n"
+                sys.stdout.flush()
         
         return Response(
             generate(),
@@ -393,7 +365,8 @@ def chat_stream():
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type'
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'X-Accel-Buffering': 'no'  # 關閉 nginx 緩衝
             }
         )
         
@@ -428,18 +401,7 @@ def initialize():
             'status': 'error'
         }), 500
 
-@app.route('/api/status', methods=['GET'])
-def get_status():
-    """獲取服務狀態"""
-    global query_engine
-    
-    return jsonify({
-        'pdf_service_initialized': query_engine is not None,
-        'timestamp': time.time(),
-        'status': 'active'
-    })
-
 if __name__ == '__main__':
     # 啟動時不自動初始化，等待第一次請求時初始化
     logger.info("啟動 Flask 應用...")
-    app.run(debug=True, host='0.0.0.0', port=5009, threaded=True)
+    app.run(debug=True, host='0.0.0.0', port=config_ini['Base']['PORT_PDF_CHAT_BACKEND'], threaded=True)

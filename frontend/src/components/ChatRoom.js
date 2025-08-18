@@ -89,11 +89,27 @@ const ChatRoom = () => {
       scrollToBottom();
     }, 100);
 
+    // 創建一個空的 AI 回應訊息
+    const aiMessageId = Date.now() + 1;
+    const aiMessage = {
+      id: aiMessageId,
+      text: "",
+      sender: "assistant",
+      timestamp: new Date(),
+      model: selectedModel,
+      sources: [],
+      isStreaming: true,
+    };
+
+    setMessages((prev) => [...prev, aiMessage]);
+
     try {
-      // 調用後端 API
+      // 調用後端 API - 使用流式端點
       const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5001";
-      const response = await fetch(`${apiBaseUrl}/api/chat`, {
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+
+      // 使用 fetch 處理流式回應
+      const response = await fetch(`${apiBaseUrl}/api/chat/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -108,37 +124,111 @@ const ChatRoom = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-      if (data.error) {
-        throw new Error(data.error);
+      // 用簡單變數儲存累積的文字和來源
+      let currentText = "";
+      let currentSources = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const jsonData = JSON.parse(line.slice(6));
+
+              if (jsonData.error) {
+                throw new Error(jsonData.error);
+              }
+
+              if (jsonData.chunk) {
+                currentText += jsonData.chunk;
+
+                // 創建新的文字變數來避免閉包問題
+                const newText = currentText;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === aiMessageId ? { ...msg, text: newText } : msg
+                  )
+                );
+              }
+
+              if (jsonData.sources) {
+                currentSources = jsonData.sources;
+              }
+
+              if (jsonData.status === "complete") {
+                // 流式完成，更新最終狀態
+                const finalText = currentText;
+                const finalSources = currentSources;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === aiMessageId
+                      ? {
+                          ...msg,
+                          text: finalText,
+                          sources: finalSources,
+                          isStreaming: false,
+                        }
+                      : msg
+                  )
+                );
+                setIsTyping(false);
+                return; // 結束處理
+              }
+
+              if (jsonData.status === "error") {
+                throw new Error(jsonData.error || "未知錯誤");
+              }
+            } catch (parseError) {
+              console.warn("解析 SSE 數據失敗:", parseError);
+            }
+          }
+        }
+
+        // 即時滾動到底部
+        scrollToBottom();
       }
 
-      const aiMessage = {
-        id: Date.now() + 1,
-        text: data.response || "抱歉，我無法處理您的請求。",
-        sender: "assistant",
-        timestamp: new Date(),
-        model: selectedModel,
-        sources: data.sources || [], // 添加來源資訊
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
+      // 如果流式處理完成但沒有收到 complete 狀態，手動結束
       setIsTyping(false);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMessageId
+            ? {
+                ...msg,
+                sources: currentSources,
+                isStreaming: false,
+              }
+            : msg
+        )
+      );
     } catch (error) {
       console.error("發送訊息錯誤:", error);
 
-      // 顯示錯誤訊息
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: `抱歉，發生了錯誤：${error.message}。請檢查網路連線或稍後再試。`,
-        sender: "assistant",
-        timestamp: new Date(),
-        model: selectedModel,
-        isError: true,
-      };
+      // 錯誤處理：將現有的 AI 訊息更新為錯誤狀態，而不是添加新訊息
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMessageId
+            ? {
+                ...msg,
+                text: `抱歉，發生了錯誤：${error.message}。請檢查網路連線或稍後再試。`,
+                isError: true,
+                isStreaming: false,
+              }
+            : msg
+        )
+      );
 
-      setMessages((prev) => [...prev, errorMessage]);
       setIsTyping(false);
     }
   };
@@ -210,7 +300,7 @@ const ChatRoom = () => {
 
     try {
       const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5001";
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
       const response = await fetch(`${apiBaseUrl}/api/upload`, {
         method: "POST",
         body: formData,
@@ -275,7 +365,7 @@ const ChatRoom = () => {
 
     try {
       const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5001";
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
       const response = await fetch(`${apiBaseUrl}/api/clear`, {
         method: "POST",
         headers: {
@@ -406,7 +496,19 @@ const ChatRoom = () => {
         <div className="chat-room-content">
           {/* 消息列表 */}
           <div className="chat-room-messages">
-            {messages.map((message) => (
+            {messages
+              .filter((message) => {
+                // 顯示所有用戶訊息
+                if (message.sender === "user") return true;
+                
+                // 對於 AI 訊息，只顯示有文字內容的或錯誤訊息
+                if (message.sender === "assistant") {
+                  return message.text.trim() !== "" || message.isError;
+                }
+                
+                return true;
+              })
+              .map((message) => (
               <div
                 key={message.id}
                 className={`chat-message ${message.sender}-message ${
