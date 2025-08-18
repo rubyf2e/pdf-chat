@@ -16,7 +16,7 @@ ARG PUBLIC_URL=/pdf-chat
 ENV PUBLIC_URL=${PUBLIC_URL}
 
 # 設定 API_BASE_URL
-ARG REACT_APP_API_BASE_URL=http://127.0.0.1/pdf-chat/api
+ARG REACT_APP_API_BASE_URL=http://127.0.0.1/pdf-chat
 ENV REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
 
 # 複製 package.json 和 package-lock.json
