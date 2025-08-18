@@ -10,8 +10,8 @@ worker_class = 'gevent'
 # 綁定地址
 bind = '0.0.0.0:' + os.getenv('PORT_PDF_CHAT_BACKEND', '5009')
 
-# 超時設置 - 增加 SSE 長連線的 timeout
-timeout = 3600  # 1 小時，適合 SSE 長連線
+# 超時設置 - 設為10分鐘適合 Ollama 回應時間
+timeout = 600  # 10 分鐘，適合 Ollama 較長的推理時間
 graceful_timeout = 30
 
 # 保持連線

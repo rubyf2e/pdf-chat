@@ -108,6 +108,10 @@ const ChatRoom = () => {
       const apiBaseUrl =
         process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
 
+      // 設置10分鐘超時控制器
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分鐘超時
+
       // 使用 fetch 處理流式回應
       const response = await fetch(`${apiBaseUrl}/api/chat/stream`, {
         method: "POST",
@@ -118,7 +122,11 @@ const ChatRoom = () => {
           message: currentMessage,
           model: selectedModel,
         }),
+        signal: controller.signal,
       });
+
+      // 清除超時計時器
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -215,13 +223,21 @@ const ChatRoom = () => {
     } catch (error) {
       console.error("發送訊息錯誤:", error);
 
+      let errorMessage = "抱歉，發生了錯誤。請檢查網路連線或稍後再試。";
+      
+      if (error.name === 'AbortError') {
+        errorMessage = "⏰ 回應時間過長（超過10分鐘），請嘗試使用更簡短的問題或稍後再試。";
+      } else if (error.message) {
+        errorMessage = `抱歉，發生了錯誤：${error.message}。請檢查網路連線或稍後再試。`;
+      }
+
       // 錯誤處理：將現有的 AI 訊息更新為錯誤狀態，而不是添加新訊息
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMessageId
             ? {
                 ...msg,
-                text: `抱歉，發生了錯誤：${error.message}。請檢查網路連線或稍後再試。`,
+                text: errorMessage,
                 isError: true,
                 isStreaming: false,
               }
@@ -303,9 +319,9 @@ const ChatRoom = () => {
       const apiBaseUrl =
         process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
       
-      // 設置較長的超時時間
+      // 設置10分鐘超時時間
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分鐘超時
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分鐘超時
 
       const response = await fetch(`${apiBaseUrl}/api/upload`, {
         method: "POST",
@@ -389,7 +405,7 @@ const ChatRoom = () => {
   // 輪詢處理狀態的函數
   const pollProcessingStatus = async (messageId, fileName) => {
     const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
-    const maxAttempts = 60; // 最多輪詢 60 次（5分鐘）
+    const maxAttempts = 120; // 增加到 120 次（10分鐘）
     let attempts = 0;
 
     const poll = async () => {
@@ -399,49 +415,65 @@ const ChatRoom = () => {
         
         if (response.ok) {
           const statusData = await response.json();
-          const processingFiles = statusData.files_detail.filter(f => f.status === 'processing');
-          const errorFiles = statusData.files_detail.filter(f => f.status === 'error');
+          const currentFile = statusData.files_detail.find(f => f.filename === fileName);
           
-          if (errorFiles.length > 0) {
-            // 有錯誤的文件
-            const errorFile = errorFiles[0];
-            const errorMessage = {
-              id: messageId,
-              text: `❌ 文件 "${fileName}" 處理失敗：${errorFile.error || '未知錯誤'}`,
-              sender: "assistant",
-              timestamp: new Date(),
-              model: "system",
-              isError: true,
-            };
-            setMessages((prev) => 
-              prev.map(msg => msg.id === messageId ? errorMessage : msg)
-            );
-            return;
-          }
-          
-          if (processingFiles.length === 0 && statusData.query_engine_ready) {
-            // 處理完成
-            const successMessage = {
-              id: messageId,
-              text: `✅ 文件 "${fileName}" 已完成處理！現在您可以開始與AI討論這個PDF的內容了。`,
-              sender: "assistant",
-              timestamp: new Date(),
-              model: "system",
-            };
-            setMessages((prev) => 
-              prev.map(msg => msg.id === messageId ? successMessage : msg)
-            );
-            return;
+          if (currentFile) {
+            if (currentFile.status === 'error') {
+              // 文件處理錯誤
+              const errorMessage = {
+                id: messageId,
+                text: `❌ 文件 "${fileName}" 處理失敗：${currentFile.error || '未知錯誤'}`,
+                sender: "assistant",
+                timestamp: new Date(),
+                model: "system",
+                isError: true,
+              };
+              setMessages((prev) => 
+                prev.map(msg => msg.id === messageId ? errorMessage : msg)
+              );
+              return;
+            }
+            
+            if (currentFile.status === 'completed' && statusData.query_engine_ready) {
+              // 處理完成
+              const successMessage = {
+                id: messageId,
+                text: `✅ 文件 "${fileName}" 已完成處理！現在您可以開始與AI討論這個PDF的內容了。`,
+                sender: "assistant",
+                timestamp: new Date(),
+                model: "system",
+              };
+              setMessages((prev) => 
+                prev.map(msg => msg.id === messageId ? successMessage : msg)
+              );
+              return;
+            }
+            
+            if (currentFile.status === 'processing') {
+              // 更新處理進度消息
+              const processingTime = Math.floor((Date.now() / 1000 - currentFile.upload_time) / 60);
+              const progressMessage = {
+                id: messageId,
+                text: `🔄 文件 "${fileName}" 正在處理中...\n\n⏱️ 已處理時間：${processingTime} 分鐘\n📊 處理狀態：${statusData.status}\n📝 總文件數：${statusData.total_files}\n✅ 已完成：${statusData.completed_files}\n⚠️ 錯誤：${statusData.error_files}`,
+                sender: "assistant",
+                timestamp: new Date(),
+                model: "system",
+              };
+              setMessages((prev) => 
+                prev.map(msg => msg.id === messageId ? progressMessage : msg)
+              );
+            }
           }
           
           if (attempts < maxAttempts) {
-            // 繼續輪詢
-            setTimeout(poll, 5000); // 每5秒檢查一次
+            // 繼續輪詢，處理時間較長時增加間隔
+            const pollInterval = attempts > 60 ? 10000 : 5000; // 5分鐘後改為每10秒檢查一次
+            setTimeout(poll, pollInterval);
           } else {
-            // 超時
+            // 超時，但提供更詳細的狀態資訊
             const timeoutMessage = {
               id: messageId,
-              text: `⚠️ 文件 "${fileName}" 處理時間較長，請稍後手動檢查狀態或重新上傳。`,
+              text: `⚠️ 文件 "${fileName}" 處理時間較長（超過 10 分鐘）\n\n📊 當前狀態：${statusData.status}\n📝 處理進度：${statusData.completed_files}/${statusData.total_files}\n\n您可以：\n• 繼續等待處理完成\n• 重新上傳文件\n• 聯繫技術支援`,
               sender: "assistant",
               timestamp: new Date(),
               model: "system",
@@ -461,6 +493,19 @@ const ChatRoom = () => {
         console.error("輪詢狀態錯誤:", error);
         if (attempts < maxAttempts) {
           setTimeout(poll, 5000);
+        } else {
+          // 網路錯誤的處理
+          const networkErrorMessage = {
+            id: messageId,
+            text: `❌ 無法檢查文件 "${fileName}" 的處理狀態\n\n網路連線錯誤，請檢查網路連線後重試。`,
+            sender: "assistant",
+            timestamp: new Date(),
+            model: "system",
+            isError: true,
+          };
+          setMessages((prev) => 
+            prev.map(msg => msg.id === messageId ? networkErrorMessage : msg)
+          );
         }
       }
     };
@@ -518,6 +563,64 @@ const ChatRoom = () => {
       const errorMessage = {
         id: Date.now(),
         text: `❌ 清空資料失敗：${error.message}`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: "system",
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    try {
+      const apiBaseUrl =
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+      const response = await fetch(`${apiBaseUrl}/api/status`);
+
+      if (response.ok) {
+        const statusData = await response.json();
+        
+        let statusText = `📊 系統狀態檢查結果\n\n`;
+        statusText += `🔧 服務狀態：${statusData.status}\n`;
+        statusText += `🤖 查詢引擎：${statusData.query_engine_ready ? '已就緒' : '未就緒'}\n`;
+        statusText += `📝 總文件數：${statusData.total_files}\n`;
+        statusText += `✅ 已完成：${statusData.completed_files}\n`;
+        statusText += `🔄 處理中：${statusData.processing_files}\n`;
+        statusText += `❌ 錯誤：${statusData.error_files}\n\n`;
+        
+        if (statusData.files_detail && statusData.files_detail.length > 0) {
+          statusText += `📄 文件詳情：\n`;
+          statusData.files_detail.forEach((file, index) => {
+            const processingTime = Math.floor((Date.now() / 1000 - file.upload_time) / 60);
+            statusText += `${index + 1}. ${file.filename}\n`;
+            statusText += `   狀態：${file.status}\n`;
+            statusText += `   處理時間：${processingTime} 分鐘\n`;
+            if (file.error) {
+              statusText += `   錯誤：${file.error}\n`;
+            }
+            statusText += `\n`;
+          });
+        } else {
+          statusText += `📄 目前沒有上傳的文件\n`;
+        }
+
+        const statusMessage = {
+          id: Date.now(),
+          text: statusText,
+          sender: "assistant",
+          timestamp: new Date(),
+          model: "system",
+        };
+        setMessages((prev) => [...prev, statusMessage]);
+      } else {
+        throw new Error(`狀態檢查失敗: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("狀態檢查錯誤:", error);
+      const errorMessage = {
+        id: Date.now(),
+        text: `❌ 狀態檢查失敗：${error.message}`,
         sender: "assistant",
         timestamp: new Date(),
         model: "system",
@@ -593,29 +696,53 @@ const ChatRoom = () => {
             )}
           </div>
 
-          {/* 清理資料按鈕 */}
-          <button
-            className="clear-data-button"
-            onClick={handleClearData}
-            title="清空所有資料"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          {/* 控制按鈕 */}
+          <div className="header-controls">
+            {/* 狀態檢查按鈕 */}
+            <button
+              className="status-check-button"
+              onClick={handleCheckStatus}
+              title="檢查處理狀態"
             >
-              <polyline points="3,6 5,6 21,6"></polyline>
-              <path d="M19,6l-2,14H7L5,6"></path>
-              <path d="M10,11v6"></path>
-              <path d="M14,11v6"></path>
-              <path d="M9,6V4a1,1 0 0,1 1,-1h4a1,1 0 0,1 1,1V6"></path>
-            </svg>
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
+              </svg>
+            </button>
+
+            {/* 清理資料按鈕 */}
+            <button
+              className="clear-data-button"
+              onClick={handleClearData}
+              title="清空所有資料"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="3,6 5,6 21,6"></polyline>
+                <path d="M19,6l-2,14H7L5,6"></path>
+                <path d="M10,11v6"></path>
+                <path d="M14,11v6"></path>
+                <path d="M9,6V4a1,1 0 0,1 1,-1h4a1,1 0 0,1 1,1V6"></path>
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* 聊天區域 */}
