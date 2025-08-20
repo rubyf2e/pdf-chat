@@ -11,3 +11,20 @@ gevent
 unstructured
 lxml
 fastembed
+
+# 聊天服務相關套件
+langchain-openai
+langchain-google-genai
+langchain-ollama
+openai
+ollama
+
+# 嵌入服務相關套件
+langchain-huggingface
+langchain-community
+langchain-text-splitters
+langchain-qdrant
+
+# 額外工具套件
+ipython
+sentence-transformers
