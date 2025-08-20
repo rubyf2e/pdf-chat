@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getApiBaseUrl } from '../utils/config';
+import { getApiBaseUrl } from '../utils/constants';
 import { SiteIcon } from "./Icons";
 
 const ChatRoom = () => {
