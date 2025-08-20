@@ -264,49 +264,6 @@
   }
 }
 
-// 清理資料按鈕
-.clear-data-button {
-  position: absolute;
-  top: $spacing-md;
-  right: calc($spacing-md + 200px); // 模型選擇器寬度 + 間距
-  background: rgba(220, 38, 38, 0.2);
-  border: 1px solid rgba(220, 38, 38, 0.3);
-  border-radius: $radius-lg;
-  padding: $spacing-sm;
-  color: $color-neutral-white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  z-index: 10;
-
-  &:hover {
-    background: rgba(220, 38, 38, 0.3);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  @media (max-width: 768px) {
-    right: calc($spacing-md + 50px); // 調整手機版位置
-    padding: $spacing-xs;
-
-    svg {
-      width: 14px;
-      height: 14px;
-    }
-  }
-}
-
 // 聊天內容區域
 .chat-room-content {
   flex: 1;
@@ -602,6 +559,11 @@
     gap: $spacing-sm;
     align-items: flex-end;
 
+    @media (max-width: 768px) {
+      gap: $spacing-xs;
+      flex-wrap: nowrap; // 確保按鈕不會換行
+    }
+
     .message-input {
       flex: 1;
       background: $color-bg-tertiary;
@@ -624,6 +586,17 @@
         outline: none;
         border-color: $color-primary;
         box-shadow: 0 0 0 2px $color-primary-shadow;
+      }
+
+      &:disabled {
+        background: rgba(51, 65, 85, 0.5);
+        color: $color-text-muted;
+        cursor: not-allowed;
+        opacity: 0.7;
+        
+        &::placeholder {
+          color: rgba(148, 163, 184, 0.6);
+        }
       }
     }
 
@@ -662,6 +635,96 @@
       }
     }
 
+    // 輸入區域的控制按鈕樣式
+    .input-control-button {
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: $color-neutral-white;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
+      backdrop-filter: blur(10px);
+
+      &.status-check-button {
+        background: rgba(59, 130, 246, 0.2);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        
+        &:hover {
+          background: rgba(59, 130, 246, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+          border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        &:active {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        }
+
+        svg {
+          animation: rotate 2s linear infinite;
+        }
+
+        &:hover svg {
+          animation-duration: 0.5s;
+        }
+
+        @keyframes rotate {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      }
+
+      &.clear-data-button {
+        background: rgba(220, 38, 38, 0.2);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        
+        &:hover {
+          background: rgba(220, 38, 38, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
+          border-color: rgba(220, 38, 38, 0.5);
+        }
+
+        &:active {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+        }
+
+        svg {
+          transition: transform 0.2s ease;
+        }
+
+        &:hover svg {
+          transform: scale(1.1);
+        }
+      }
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      @media (max-width: 768px) {
+        width: 36px;
+        height: 36px;
+        
+        svg {
+          width: 14px;
+          height: 14px;
+        }
+      }
+    }
+
     .send-button {
       background: linear-gradient(135deg, $color-primary, $color-primary-light);
       border: none;
@@ -688,6 +751,13 @@
       &:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+        background: #6c757d;
+        transform: none;
+        
+        &:hover {
+          transform: none;
+          box-shadow: none;
+        }
       }
 
       svg {

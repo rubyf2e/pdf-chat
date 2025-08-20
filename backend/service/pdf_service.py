@@ -17,13 +17,38 @@ def load_config():
     config_ini.read('config.ini')
     
     return {
+        'base_origins': config_ini['CORS']['ALLOWED_ORIGINS'].split(','),
         'gemini_key': config_ini['GeminiChat']['KEY'],
         'embedding_gemini_model': config_ini['GeminiChat']['EMBEDDING_MODEL_NAME'],
         'chat_gemini_model': config_ini['GeminiChat']['CHAT_MODEL_NAME'],
         'qdrant_url': config_ini['QDRANT']['URL'],
         'qdrant_key': config_ini['QDRANT']['API_KEY'],
-        'input_dir': config_ini['Base']['INPUT_DIR']
+        'input_dir': config_ini['Base']['INPUT_DIR'],
+        'ssl_enabled': config_ini.getboolean('Base', 'SSL_ENABLED', fallback=False),
+        'port_backend': config_ini.getint('Base', 'PORT_PDF_CHAT_BACKEND', fallback=5009)
     }
+
+
+def get_protocol(config):
+    """根據 SSL_ENABLED 設定取得協議"""
+    return 'https' if config.get('ssl_enabled', False) else 'http'
+
+
+def get_cors_origins(config):
+    """根據 SSL_ENABLED 設定取得 CORS 允許的來源"""
+    base_origins = config['base_origins']
+    protocol = get_protocol(config)
+    
+    # 將所有 origins 轉換為正確的協議
+    updated_origins = []
+    for origin in base_origins:
+        origin = origin.strip()
+        if '://' in origin:
+            # 替換現有協議
+            origin = origin.replace('http://', f'{protocol}://').replace('https://', f'{protocol}://')
+        updated_origins.append(origin)
+    
+    return updated_origins
 
 
 def setup_models(config):

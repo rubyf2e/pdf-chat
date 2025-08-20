@@ -8,18 +8,21 @@ import shutil
 from threading import Lock
 from werkzeug.utils import secure_filename
 from pathlib import Path
-from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf, clear_uploaded_data, add_pdf_to_existing_index, get_upload_folder_info
+from service.pdf_service import initialize_pdf_service, query_pdf, process_uploaded_pdf, clear_uploaded_data, add_pdf_to_existing_index, get_upload_folder_info, load_config, get_cors_origins
 import logging
-import configparser
-config_ini = configparser.ConfigParser()
-config_ini.read('config.ini')
+
+# 載入配置
+app_config = load_config()
                 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # 允許跨域請求
+
+# 動態 CORS 設定
+cors_origins = get_cors_origins(app_config)
+CORS(app, origins=cors_origins)  # 使用動態生成的允許來源
 
 # 文件上傳配置
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -98,8 +101,8 @@ def upload_file():
                 # 使用新的清理函數
                 clear_success = clear_uploaded_data(
                     upload_folder=UPLOAD_FOLDER,
-                    qdrant_url=config_ini['QDRANT']['URL'],
-                    qdrant_key=config_ini['QDRANT']['API_KEY']
+                    qdrant_url=app_config['qdrant_url'],
+                    qdrant_key=app_config['qdrant_key']
                 )
                 
                 if not clear_success:
@@ -297,8 +300,8 @@ def clear_all():
             # 清空所有資料
             clear_success = clear_uploaded_data(
                 upload_folder=UPLOAD_FOLDER,
-                qdrant_url=config_ini['QDRANT']['URL'],
-                qdrant_key=config_ini['QDRANT']['API_KEY']
+                qdrant_url=app_config['qdrant_url'],
+                qdrant_key=app_config['qdrant_key']
             )
             
             # 重置應用程式狀態
@@ -470,4 +473,4 @@ def initialize():
 if __name__ == '__main__':
     # 啟動時不自動初始化，等待第一次請求時初始化
     logger.info("啟動 Flask 應用...")
-    app.run(debug=True, host='0.0.0.0', port=config_ini['Base']['PORT_PDF_CHAT_BACKEND'], threaded=True)
+    app.run(debug=True, host='0.0.0.0', port=app_config['port_backend'], threaded=True)

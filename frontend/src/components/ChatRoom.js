@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react';
+import { getApiBaseUrl } from '../utils/config';
 import { SiteIcon } from "./Icons";
 
 const ChatRoom = () => {
@@ -10,7 +11,15 @@ const ChatRoom = () => {
                 <button class="chat-option">🔍 搜尋PDF資訊</button> 
                 <button class="chat-option">📝 總結PDF重點</button>
                 <button class="chat-option">💡 解答PDF問題</button>
-                </div></div>請選擇您想使用的 AI 模型，然後開始討論您的PDF吧！`,
+                </div></div>
+
+🚀 <strong>開始使用步驟：</strong>
+1️⃣ 選擇您想使用的 AI 模型
+2️⃣ 點擊右下角 📎 按鈕上傳您的 PDF 檔案
+3️⃣ 等待檔案處理完成
+4️⃣ 開始與 AI 討論您的 PDF 內容！
+
+💡 提示：請先上傳 PDF 檔案才能開始聊天對話。`,
       sender: "assistant",
       timestamp: new Date(),
     },
@@ -21,6 +30,7 @@ const ChatRoom = () => {
   const [selectedModel, setSelectedModel] = useState("gemini");
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -67,10 +77,46 @@ const ChatRoom = () => {
     }
   }, []);
 
+  // 組件載入時檢查是否已有上傳的檔案
+  useEffect(() => {
+    const checkUploadedFiles = async () => {
+      try {
+        const apiBaseUrl = getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/api/status`);
+        
+        if (response.ok) {
+          const statusData = await response.json();
+          // 如果有完成處理的檔案且查詢引擎就緒，則設置為已上傳
+          if (statusData.completed_files > 0 && statusData.query_engine_ready) {
+            setHasUploadedFile(true);
+          }
+        }
+      } catch (error) {
+        console.log("檢查上傳檔案狀態失敗:", error);
+      }
+    };
+
+    checkUploadedFiles();
+  }, []);
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!newMessage.trim()) return;
+
+    // 檢查是否已上傳檔案
+    if (!hasUploadedFile) {
+      const errorMessage = {
+        id: Date.now(),
+        text: `❌ 請先上傳 PDF 檔案再開始聊天\n\n💡 點擊右下角的 📎 按鈕來上傳您的 PDF 檔案`,
+        sender: "assistant",
+        timestamp: new Date(),
+        model: "system",
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
 
     const userMessage = {
       id: Date.now(),
@@ -105,8 +151,7 @@ const ChatRoom = () => {
 
     try {
       // 調用後端 API - 使用流式端點
-      const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+      const apiBaseUrl = getApiBaseUrl();
 
       // 設置10分鐘超時控制器
       const controller = new AbortController();
@@ -316,8 +361,7 @@ const ChatRoom = () => {
     formData.append("file", file);
 
     try {
-      const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+      const apiBaseUrl = getApiBaseUrl();
       
       // 設置10分鐘超時時間
       const controller = new AbortController();
@@ -361,6 +405,8 @@ const ChatRoom = () => {
           setMessages((prev) => 
             prev.map(msg => msg.id === uploadingMessageId ? finalMessage : msg)
           );
+          // 設置檔案已上傳標記
+          setHasUploadedFile(true);
         }
       } else {
         const errorData = await response.json();
@@ -404,7 +450,7 @@ const ChatRoom = () => {
 
   // 輪詢處理狀態的函數
   const pollProcessingStatus = async (messageId, fileName) => {
-    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+    const apiBaseUrl = getApiBaseUrl();
     const maxAttempts = 120; // 增加到 120 次（10分鐘）
     let attempts = 0;
 
@@ -446,6 +492,8 @@ const ChatRoom = () => {
               setMessages((prev) => 
                 prev.map(msg => msg.id === messageId ? successMessage : msg)
               );
+              // 設置檔案已上傳標記
+              setHasUploadedFile(true);
               return;
             }
             
@@ -535,8 +583,7 @@ const ChatRoom = () => {
     }
 
     try {
-      const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/api/clear`, {
         method: "POST",
         headers: {
@@ -555,6 +602,8 @@ const ChatRoom = () => {
           model: "system",
         };
         setMessages((prev) => [...prev, successMessage]);
+        // 重置檔案上傳狀態
+        setHasUploadedFile(false);
       } else {
         throw new Error(data.error || "清空資料失敗");
       }
@@ -574,8 +623,7 @@ const ChatRoom = () => {
 
   const handleCheckStatus = async () => {
     try {
-      const apiBaseUrl =
-        process.env.REACT_APP_API_BASE_URL || "http://localhost:5009";
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/api/status`);
 
       if (response.ok) {
@@ -694,54 +742,6 @@ const ChatRoom = () => {
                 ))}
               </div>
             )}
-          </div>
-
-          {/* 控制按鈕 */}
-          <div className="header-controls">
-            {/* 狀態檢查按鈕 */}
-            <button
-              className="status-check-button"
-              onClick={handleCheckStatus}
-              title="檢查處理狀態"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
-              </svg>
-            </button>
-
-            {/* 清理資料按鈕 */}
-            <button
-              className="clear-data-button"
-              onClick={handleClearData}
-              title="清空所有資料"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="3,6 5,6 21,6"></polyline>
-                <path d="M19,6l-2,14H7L5,6"></path>
-                <path d="M10,11v6"></path>
-                <path d="M14,11v6"></path>
-                <path d="M9,6V4a1,1 0 0,1 1,-1h4a1,1 0 0,1 1,1V6"></path>
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -864,11 +864,13 @@ const ChatRoom = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={`使用 ${
-                  getCurrentModel().name
-                } 與 AI 討論您的PDF...`}
+                placeholder={hasUploadedFile 
+                  ? `使用 ${getCurrentModel().name} 與 AI 討論您的PDF...`
+                  : "請先上傳 PDF 檔案，然後開始聊天..."
+                }
                 rows="1"
                 className="message-input"
+                disabled={!hasUploadedFile}
               />
               <button
                 type="button"
@@ -890,9 +892,55 @@ const ChatRoom = () => {
                   <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49" />
                 </svg>
               </button>
+
+              {/* 狀態檢查按鈕 */}
+              <button
+                className="status-check-button input-control-button"
+                onClick={handleCheckStatus}
+                title="檢查處理狀態"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
+                </svg>
+              </button>
+
+              {/* 清理資料按鈕 */}
+              <button
+                className="clear-data-button input-control-button"
+                onClick={handleClearData}
+                title="清空所有資料"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3,6 5,6 21,6"></polyline>
+                  <path d="M19,6l-2,14H7L5,6"></path>
+                  <path d="M10,11v6"></path>
+                  <path d="M14,11v6"></path>
+                  <path d="M9,6V4a1,1 0 0,1 1,-1h4a1,1 0 0,1 1,1V6"></path>
+                </svg>
+              </button>
+
               <button
                 type="submit"
-                disabled={!newMessage.trim()}
+                disabled={!newMessage.trim() || !hasUploadedFile}
                 className="send-button"
               >
                 <svg
