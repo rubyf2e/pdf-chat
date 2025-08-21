@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { getApiBaseUrl } from '../utils/constants';
+import React, { useState, useRef, useEffect } from "react";
+import { getApiBaseUrl } from "../utils/constants";
 import { SiteIcon } from "./Icons";
 
 const ChatRoom = () => {
@@ -83,7 +83,7 @@ const ChatRoom = () => {
       try {
         const apiBaseUrl = getApiBaseUrl();
         const response = await fetch(`${apiBaseUrl}/api/status`);
-        
+
         if (response.ok) {
           const statusData = await response.json();
           // 如果有完成處理的檔案且查詢引擎就緒，則設置為已上傳
@@ -269,9 +269,10 @@ const ChatRoom = () => {
       console.error("發送訊息錯誤:", error);
 
       let errorMessage = "抱歉，發生了錯誤。請檢查網路連線或稍後再試。";
-      
-      if (error.name === 'AbortError') {
-        errorMessage = "⏰ 回應時間過長（超過10分鐘），請嘗試使用更簡短的問題或稍後再試。";
+
+      if (error.name === "AbortError") {
+        errorMessage =
+          "⏰ 回應時間過長（超過10分鐘），請嘗試使用更簡短的問題或稍後再試。";
       } else if (error.message) {
         errorMessage = `抱歉，發生了錯誤：${error.message}。請檢查網路連線或稍後再試。`;
       }
@@ -362,7 +363,7 @@ const ChatRoom = () => {
 
     try {
       const apiBaseUrl = getApiBaseUrl();
-      
+
       // 設置10分鐘超時時間
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分鐘超時
@@ -377,7 +378,7 @@ const ChatRoom = () => {
 
       if (response.ok) {
         const responseData = await response.json();
-        
+
         // 更新上傳狀態消息
         const uploadSuccessMessage = {
           id: uploadingMessageId,
@@ -386,8 +387,10 @@ const ChatRoom = () => {
           timestamp: new Date(),
           model: "system",
         };
-        setMessages((prev) => 
-          prev.map(msg => msg.id === uploadingMessageId ? uploadSuccessMessage : msg)
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === uploadingMessageId ? uploadSuccessMessage : msg
+          )
         );
 
         // 如果是異步處理，開始輪詢狀態
@@ -402,8 +405,10 @@ const ChatRoom = () => {
             timestamp: new Date(),
             model: "system",
           };
-          setMessages((prev) => 
-            prev.map(msg => msg.id === uploadingMessageId ? finalMessage : msg)
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === uploadingMessageId ? finalMessage : msg
+            )
           );
           // 設置檔案已上傳標記
           setHasUploadedFile(true);
@@ -418,15 +423,17 @@ const ChatRoom = () => {
           model: "system",
           isError: true,
         };
-        setMessages((prev) => 
-          prev.map(msg => msg.id === uploadingMessageId ? errorMessage : msg)
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === uploadingMessageId ? errorMessage : msg
+          )
         );
       }
     } catch (error) {
       console.error("上傳錯誤:", error);
       let errorText = "❌ 上傳失敗，請重試";
-      
-      if (error.name === 'AbortError') {
+
+      if (error.name === "AbortError") {
         errorText = "❌ 上傳超時，請檢查文件大小並重試";
       } else if (error.message) {
         errorText = `❌ 上傳失敗：${error.message}`;
@@ -440,8 +447,8 @@ const ChatRoom = () => {
         model: "system",
         isError: true,
       };
-      setMessages((prev) => 
-        prev.map(msg => msg.id === uploadingMessageId ? errorMessage : msg)
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === uploadingMessageId ? errorMessage : msg))
       );
     } finally {
       setIsUploading(false);
@@ -458,29 +465,36 @@ const ChatRoom = () => {
       try {
         attempts++;
         const response = await fetch(`${apiBaseUrl}/api/status`);
-        
+
         if (response.ok) {
           const statusData = await response.json();
-          const currentFile = statusData.files_detail.find(f => f.filename === fileName);
-          
+          const currentFile = statusData.files_detail.find(
+            (f) => f.filename === fileName
+          );
+
           if (currentFile) {
-            if (currentFile.status === 'error') {
+            if (currentFile.status === "error") {
               // 文件處理錯誤
               const errorMessage = {
                 id: messageId,
-                text: `❌ 文件 "${fileName}" 處理失敗：${currentFile.error || '未知錯誤'}`,
+                text: `❌ 文件 "${fileName}" 處理失敗：${
+                  currentFile.error || "未知錯誤"
+                }`,
                 sender: "assistant",
                 timestamp: new Date(),
                 model: "system",
                 isError: true,
               };
-              setMessages((prev) => 
-                prev.map(msg => msg.id === messageId ? errorMessage : msg)
+              setMessages((prev) =>
+                prev.map((msg) => (msg.id === messageId ? errorMessage : msg))
               );
               return;
             }
-            
-            if (currentFile.status === 'completed' && statusData.query_engine_ready) {
+
+            if (
+              currentFile.status === "completed" &&
+              statusData.query_engine_ready
+            ) {
               // 處理完成
               const successMessage = {
                 id: messageId,
@@ -489,17 +503,19 @@ const ChatRoom = () => {
                 timestamp: new Date(),
                 model: "system",
               };
-              setMessages((prev) => 
-                prev.map(msg => msg.id === messageId ? successMessage : msg)
+              setMessages((prev) =>
+                prev.map((msg) => (msg.id === messageId ? successMessage : msg))
               );
               // 設置檔案已上傳標記
               setHasUploadedFile(true);
               return;
             }
-            
-            if (currentFile.status === 'processing') {
+
+            if (currentFile.status === "processing") {
               // 更新處理進度消息
-              const processingTime = Math.floor((Date.now() / 1000 - currentFile.upload_time) / 60);
+              const processingTime = Math.floor(
+                (Date.now() / 1000 - currentFile.upload_time) / 60
+              );
               const progressMessage = {
                 id: messageId,
                 text: `🔄 文件 "${fileName}" 正在處理中...\n\n⏱️ 已處理時間：${processingTime} 分鐘\n📊 處理狀態：${statusData.status}\n📝 總文件數：${statusData.total_files}\n✅ 已完成：${statusData.completed_files}\n⚠️ 錯誤：${statusData.error_files}`,
@@ -507,12 +523,14 @@ const ChatRoom = () => {
                 timestamp: new Date(),
                 model: "system",
               };
-              setMessages((prev) => 
-                prev.map(msg => msg.id === messageId ? progressMessage : msg)
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === messageId ? progressMessage : msg
+                )
               );
             }
           }
-          
+
           if (attempts < maxAttempts) {
             // 繼續輪詢，處理時間較長時增加間隔
             const pollInterval = attempts > 60 ? 10000 : 5000; // 5分鐘後改為每10秒檢查一次
@@ -527,8 +545,8 @@ const ChatRoom = () => {
               model: "system",
               isError: true,
             };
-            setMessages((prev) => 
-              prev.map(msg => msg.id === messageId ? timeoutMessage : msg)
+            setMessages((prev) =>
+              prev.map((msg) => (msg.id === messageId ? timeoutMessage : msg))
             );
           }
         } else {
@@ -551,8 +569,10 @@ const ChatRoom = () => {
             model: "system",
             isError: true,
           };
-          setMessages((prev) => 
-            prev.map(msg => msg.id === messageId ? networkErrorMessage : msg)
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId ? networkErrorMessage : msg
+            )
           );
         }
       }
@@ -628,19 +648,23 @@ const ChatRoom = () => {
 
       if (response.ok) {
         const statusData = await response.json();
-        
+
         let statusText = `📊 系統狀態檢查結果\n\n`;
         statusText += `🔧 服務狀態：${statusData.status}\n`;
-        statusText += `🤖 查詢引擎：${statusData.query_engine_ready ? '已就緒' : '未就緒'}\n`;
+        statusText += `🤖 查詢引擎：${
+          statusData.query_engine_ready ? "已就緒" : "未就緒"
+        }\n`;
         statusText += `📝 總文件數：${statusData.total_files}\n`;
         statusText += `✅ 已完成：${statusData.completed_files}\n`;
         statusText += `🔄 處理中：${statusData.processing_files}\n`;
         statusText += `❌ 錯誤：${statusData.error_files}\n\n`;
-        
+
         if (statusData.files_detail && statusData.files_detail.length > 0) {
           statusText += `📄 文件詳情：\n`;
           statusData.files_detail.forEach((file, index) => {
-            const processingTime = Math.floor((Date.now() / 1000 - file.upload_time) / 60);
+            const processingTime = Math.floor(
+              (Date.now() / 1000 - file.upload_time) / 60
+            );
             statusText += `${index + 1}. ${file.filename}\n`;
             statusText += `   狀態：${file.status}\n`;
             statusText += `   處理時間：${processingTime} 分鐘\n`;
@@ -753,74 +777,76 @@ const ChatRoom = () => {
               .filter((message) => {
                 // 顯示所有用戶訊息
                 if (message.sender === "user") return true;
-                
+
                 // 對於 AI 訊息，只顯示有文字內容的或錯誤訊息
                 if (message.sender === "assistant") {
                   return message.text.trim() !== "" || message.isError;
                 }
-                
+
                 return true;
               })
               .map((message) => (
-              <div
-                key={message.id}
-                className={`chat-message ${message.sender}-message ${
-                  message.isError ? "error-message" : ""
-                }`}
-              >
-                <div className="message-content">
-                  <div className="message-header">
-                    {message.sender === "assistant" && (
-                      <div className="ai-info">
-                        <span className="ai-icon">
-                          <SiteIcon />
-                        </span>
-                        <span className="ai-name">AI PDF 小幫手</span>
-                        {message.model && (
-                          <span className="model-badge">
-                            {message.model.toUpperCase()}
+                <div
+                  key={message.id}
+                  className={`chat-message ${message.sender}-message ${
+                    message.isError ? "error-message" : ""
+                  }`}
+                >
+                  <div className="message-content">
+                    <div className="message-header">
+                      {message.sender === "assistant" && (
+                        <div className="ai-info">
+                          <span className="ai-icon">
+                            <SiteIcon />
                           </span>
-                        )}
-                      </div>
-                    )}
-                    {message.sender === "user" && (
-                      <div className="user-info">
-                        <span className="user-icon">👤</span>
-                        <span className="user-name">您</span>
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    className="message-text"
-                    dangerouslySetInnerHTML={{ __html: message.text }}
-                  />
-
-                  {/* 顯示來源資訊 */}
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="message-sources">
-                      <div className="sources-header">📖 參考來源：</div>
-                      <div className="sources-list">
-                        {message.sources.slice(0, 3).map((source, index) => (
-                          <div key={index} className="source-item">
-                            <span className="source-number">{index + 1}.</span>
-                            <span className="source-info">
-                              {source.file_name} - 第 {source.page} 頁
+                          <span className="ai-name">AI PDF 小幫手</span>
+                          {message.model && (
+                            <span className="model-badge">
+                              {message.model.toUpperCase()}
                             </span>
-                            <span className="source-score">
-                              (相關度: {(source.score || 0).toFixed(2)})
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                          )}
+                        </div>
+                      )}
+                      {message.sender === "user" && (
+                        <div className="user-info">
+                          <span className="user-icon">👤</span>
+                          <span className="user-name">您</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    <div
+                      className="message-text"
+                      dangerouslySetInnerHTML={{ __html: message.text }}
+                    />
 
-                  <div className="message-time">
-                    {formatTime(message.timestamp)}
+                    {/* 顯示來源資訊 */}
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="message-sources">
+                        <div className="sources-header">📖 參考來源：</div>
+                        <div className="sources-list">
+                          {message.sources.slice(0, 3).map((source, index) => (
+                            <div key={index} className="source-item">
+                              <span className="source-number">
+                                {index + 1}.
+                              </span>
+                              <span className="source-info">
+                                {source.file_name} - 第 {source.page} 頁
+                              </span>
+                              <span className="source-score">
+                                (相關度: {(source.score || 0).toFixed(2)})
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="message-time">
+                      {formatTime(message.timestamp)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
             {/* 輸入中指示器 */}
             {isTyping && (
@@ -864,9 +890,10 @@ const ChatRoom = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={hasUploadedFile 
-                  ? `使用 ${getCurrentModel().name} 與 AI 討論您的PDF...`
-                  : "請先上傳 PDF 檔案，然後開始聊天..."
+                placeholder={
+                  hasUploadedFile
+                    ? `使用 ${getCurrentModel().name} 與 AI 討論您的PDF...`
+                    : "請先上傳 PDF 檔案，然後開始聊天..."
                 }
                 rows="1"
                 className="message-input"
@@ -940,7 +967,7 @@ const ChatRoom = () => {
 
               <button
                 type="submit"
-                disabled={!newMessage.trim() || !hasUploadedFile}
+                // disabled={!newMessage.trim() || !hasUploadedFile}
                 className="send-button"
               >
                 <svg
